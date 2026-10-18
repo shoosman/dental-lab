@@ -219,6 +219,7 @@ const cap = s => s[0].toUpperCase() + s.slice(1);
 const rel = s => { const t = today(); if (s === t) return "Сегодня"; if (s === addDays(t, 1)) return "Завтра"; if (s === addDays(t, 2)) return "Послезавтра"; if (s === addDays(t, -1)) return "Вчера"; return cap(WD[parse(s).getDay()]); };
 const plural = (n, a, b, c) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? b : c; };
 const works = n => `${n} ${plural(n, "работа", "работы", "работ")}`;
+const worksAcc = n => `${n} ${plural(n, "работу", "работы", "работ")}`;   // «сдать 1 работу»
 
 // Нагрузка дня по несданным работам: 1 — зелёный, 2–4 — жёлтый, 5 и больше — красный
 const level = n => n <= 0 ? 0 : n === 1 ? 1 : n <= 4 ? 2 : 3;
@@ -255,7 +256,7 @@ function renderDay() {
     const overdue = live().filter(o => !o.done && o.due < t).sort((a, b) => a.due.localeCompare(b.due));
     if (overdue.length) h += `<div class="notice overdue"><b>Просрочено: ${works(overdue.length)}</b><div class="list">${overdue.map(o => orderCard(o, true)).join("")}</div></div>`;
     const r = [1, 2].map(k => [addDays(t, k), openOn(addDays(t, k)).length]).filter(([, n]) => n);
-    if (r.length) h += `<div class="notice remind"><b>Напоминание</b>${r.map(([dd, n]) => `<span>${rel(dd)} (${human(dd)}) сдать ${works(n)}</span>`).join("")}</div>`;
+    if (r.length) h += `<div class="notice remind"><b>Напоминание</b>${r.map(([dd, n]) => `<span>${rel(dd)} (${human(dd)}) сдать ${worksAcc(n)}</span>`).join("")}</div>`;
   }
 
   h += `<section><h2>На сдачу</h2><div class="list">${list.length ? list.map(o => orderCard(o)).join("") : `<div class="empty">На этот день заказов нет. Нажмите «+ Заказ», чтобы добавить.</div>`}</div></section>`;
