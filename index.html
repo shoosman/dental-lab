@@ -175,6 +175,9 @@ h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: u
 .cell.l2 { background: var(--warn-bg); border-color: transparent; }
 .cell.l3 { background: var(--bad-bg); border-color: transparent; }
 .legend { display: flex; flex-wrap: wrap; gap: 8px; }
+.filterbar { margin-bottom: -6px; }
+.filterbar select { max-width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; font-size: 14px; color: var(--muted); }
+.filterbar select.on { border-color: transparent; background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
 
 .overlay { position: fixed; inset: 0; background: rgb(0 0 0 / .4); z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
 .sheet { background: var(--surface); width: 100%; max-width: 560px; max-height: 92%; overflow: auto; border-radius: 18px 18px 0 0;
@@ -275,7 +278,18 @@ const worksAcc = n => `${n} ${plural(n, "работу", "работы", "раб�
 
 // Нагрузка дня по несданным работам: 1 — зелёный, 2–4 — жёлтый, 5 и больше — красный
 const level = n => n <= 0 ? 0 : n === 1 ? 1 : n <= 4 ? 2 : 3;
-const dueOn = d => live().filter(o => o.due === d);
+// Фильтр по врачу/клинике (на устройстве своё): день, напоминания и цвет календаря считаются по выбранному
+let viewFilter = lsGet("lab-filter", "");
+const doctorsList = () => [...new Set(live().map(o => o.doctor).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ru"));
+const shown = () => viewFilter ? live().filter(o => o.doctor === viewFilter) : live();
+const filterBar = () => {
+  const list = doctorsList();
+  if (!list.length && !viewFilter) return "";
+  if (viewFilter && !list.includes(viewFilter)) list.unshift(viewFilter);
+  return `<div class="filterbar"><select id="filter" aria-label="Врач или клиника" class="${viewFilter ? "on" : ""}">
+    <option value="">Все врачи и клиники</option>${list.map(d => `<option value="${esc(d)}" ${d === viewFilter ? "selected" : ""}>${esc(d)}</option>`).join("")}</select></div>`;
+};
+const dueOn = d => shown().filter(o => o.due === d);
 const openOn = d => dueOn(d).filter(o => !o.done);
 const chip = n => `<span class="chip l${level(n)}">${n ? works(n) : "свободно"}</span>`;
 const byWork = (a, b) => (a.done - b.done) || (a.doctor || "").localeCompare(b.doctor || "");
@@ -585,7 +599,7 @@ function orderCard(o, showDate) {
 
 function renderDay() {
   const t = today(), d = S.sel, list = dueOn(d).sort(byWork), open = openOn(d).length;
-  let h = `<section class="dayhead">
+  let h = filterBar() + `<section class="dayhead">
     <button class="iconbtn" data-shift="-1" aria-label="Предыдущий день">‹</button>
     <div class="grow"><h1>${rel(d)}, ${human(d)}</h1><div class="sub">${WD[parse(d).getDay()]} · ${chip(open)}</div></div>
     <button class="iconbtn" data-shift="1" aria-label="Следующий день">›</button>
@@ -593,7 +607,7 @@ function renderDay() {
   </section>`;
 
   if (d === t) {
-    const overdue = live().filter(o => !o.done && o.due < t).sort((a, b) => a.due.localeCompare(b.due));
+    const overdue = shown().filter(o => !o.done && o.due < t).sort((a, b) => a.due.localeCompare(b.due));
     if (overdue.length) h += `<div class="notice overdue"><b>Просрочено: ${works(overdue.length)}</b><div class="list">${overdue.map(o => orderCard(o, true)).join("")}</div></div>`;
     const r = [1, 2].map(k => [addDays(t, k), openOn(addDays(t, k)).length]).filter(([, n]) => n);
     if (r.length) h += `<div class="notice remind"><b>Напоминание</b>${r.map(([dd, n]) => `<span>${rel(dd)} (${human(dd)}) сдать ${worksAcc(n)}</span>`).join("")}</div>`;
@@ -620,7 +634,7 @@ function renderCal() {
     cells += `<button class="cell l${lv}${d === t ? " today" : ""}${d < t ? " past" : ""}" data-goto="${d}" aria-label="${human(d)}: ${works(n)}">
       <span class="n">${dn}</span><span class="c">${n || (all ? "✓" : "")}</span></button>`;
   }
-  return `<section class="calhead">
+  return filterBar() + `<section class="calhead">
       <button class="iconbtn" data-month="-1" aria-label="Предыдущий месяц">‹</button>
       <h1>${cap(MONTHS[m])} ${y}</h1>
       <button class="iconbtn" data-month="1" aria-label="Следующий месяц">›</button>
@@ -650,6 +664,10 @@ function render() {
 
 function go(d) { S.sel = d; S.view = "day"; const p = parse(d); S.calY = p.getFullYear(); S.calM = p.getMonth(); render(); window.scrollTo(0, 0); }
 
+document.addEventListener("change", e => {
+  if (e.target.id !== "filter") return;
+  viewFilter = e.target.value; lsSet("lab-filter", viewFilter); render();
+});
 document.addEventListener("click", e => {
   const b = e.target.closest("button, input");
   if (!b || b.closest("#modal")) return;
