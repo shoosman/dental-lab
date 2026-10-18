@@ -378,7 +378,7 @@ function voiceUnits(s) {
 function voiceNameAfter(raw, re) {
   const m = re.exec(raw);
   if (!m) return "";
-  const words = raw.slice(m.index + m[0].length).replace(/[,.;]/g, " , ").split(/\s+/).filter(Boolean);
+  const words = voiceGlue(raw.slice(m.index + m[0].length).replace(/[,.;]/g, " , ").split(/\s+/).filter(Boolean));
   const out = [];
   for (const w of words) {
     if (w === "," || VOICE_STOP.test(w.toLowerCase()) || /\d/.test(w) || out.length === 2) break;
@@ -390,8 +390,55 @@ function voiceNameAfter(raw, re) {
 // Фамилия без ключевого слова: с заглавной буквы или с типичным окончанием, и не из рабочего словаря
 const VOICE_VOCAB = /^(коронк|мост|винир|вкладк|культев|бюгел|съемн|капп|ремонт|почин|циркон|диоксид|[еэи]-?макс|e\.?-?max|металл|мк$|времен|пластмасс|штук|шт$|единиц|ед$|зуб|цвет|этап|заказ|нов|к$|на$|в$|во$|до$|через|сдать|сдач|сдан|готов|завтра|послезавтра|сегодня|понедельник|вторник|сред|четверг|пятниц|суббот|воскресень|январ|феврал|март|апрел|ма[йя]$|июн|июл|август|сентябр|октябр|ноябр|декабр|числ|недел|дн[яей]|день|скан|отлив|отлит|модел|фрез|обработ|сыр|запек|запеч|спек|синтер|печ|глазур|покрас|окрас|вклеи|вклей|склеи|клеи|переве|пациент|врач|доктор|клиник|стоматолог|систем|делает|сделает|исполнител|мастер|техник|отда|от$|для$|и$|а$|из$|с$|по$|одн|один|два|две|три|четыр|пять|шест|сем|восем|девят|десят|двадцат|тридцат|перв|втор|трет|следующ|эт[аоу]|тот|та$|ту$)/;
 const VOICE_SURNAME = /(ов|ова|ев|ева|ин|ина|ын|ына|ский|ская|цкий|цкая|ук|юк|енко|ян|дзе|швили|их|ых)$/;
-function voiceGuessName(raw, exclude) {
-  const words = raw.replace(/[,.;!?«»"]/g, " , ").split(/\s+/).filter(Boolean);
+/* ---------- фамилии: опечатки распознавания и разорванные слова ---------- */
+const normName = w => w.toLowerCase().replace(/ё/g, "е");
+function lev(a, b) {
+  if (Math.abs(a.length - b.length) > 3) return 9;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+// Похожи ли два слова-фамилии: допускаем 1–2 опечатки, но не путаем «Смирнов» и «Смирнова» — это разные люди
+function nameClose(a, b) {
+  a = normName(a); b = normName(b);
+  if (a === b) return true;
+  if (a.length < 5 || b.length < 5) return false;
+  if (a + "а" === b || b + "а" === a) return false;
+  return lev(a, b) <= (Math.max(a.length, b.length) <= 8 ? 1 : 2);
+}
+// Подставить знакомого пациента, если распознанная фамилия на него похожа
+function voiceKnownPatient(name, knownPatients) {
+  if (!name) return name;
+  const exact = knownPatients.find(k => normName(k) === normName(name));
+  if (exact) return exact;
+  const first = name.split(" ")[0];
+  return knownPatients.find(k => nameClose(k, name) || nameClose(k.split(" ")[0], first)) || name;
+}
+// «Чепуши Лкин», «чепуш илкин» → «Чепушилкин»: склеиваем, если первая часть сама не похожа на фамилию,
+// а вторая короткая или со строчной буквы (так распознавание рвёт редкое слово), — или если склейка даёт знакомого пациента
+function voiceGlue(words, knownPatients = []) {
+  const out = [];
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i], n = words[i + 1];
+    if (n && w !== "," && n !== "," && !/\d/.test(w + n)) {
+      const lw = normName(w), ln = normName(n), glued = lw + ln;
+      const looksSplit = !VOICE_VOCAB.test(lw) && !VOICE_VOCAB.test(ln) && !VOICE_SURNAME.test(lw) && VOICE_SURNAME.test(glued)
+        && (ln.length <= 4 || /^[а-яё]/.test(n));
+      if (looksSplit || (knownPatients.some(k => nameClose(k.split(" ")[0], glued)) && !knownPatients.some(k => nameClose(k.split(" ")[0], lw)))) {
+        out.push(w + ln); i++; continue;
+      }
+    }
+    out.push(w);
+  }
+  return out;
+}
+
+function voiceGuessName(raw, exclude, knownPatients = []) {
+  const words = voiceGlue(raw.replace(/[,.;!?«»"]/g, " , ").split(/\s+/).filter(Boolean), knownPatients);
   const out = [];
   for (const w of words) {
     const lw = w.toLowerCase().replace(/ё/g, "е");
@@ -427,7 +474,7 @@ function voiceSystem(raw, s) {
   return (VOICE_SYSTEMS.find(([re]) => re.test(s)) || [])[1] || "";
 }
 
-function parseOrderSpeech(raw, todayIso, knownDoctors = [], knownWorks = []) {
+function parseOrderSpeech(raw, todayIso, knownDoctors = [], knownWorks = [], knownPatients = []) {
   const s = voiceNormalize(raw);
   const date = voiceDate(s, todayIso);
   const rest = date.hit ? s.replace(date.hit, " ") : s;   // число из даты не должно стать количеством
@@ -441,7 +488,7 @@ function parseOrderSpeech(raw, todayIso, knownDoctors = [], knownWorks = []) {
   const systemWords = system ? lowWords(voiceNameAfter(raw, /(?:^|\s)систем[а-я]*\s+/i) || "") : [];
   const brandWords = lowWords(raw).filter(w => VOICE_SYSTEMS.some(([re]) => re.test(" " + w + " ")));
   const exclude = [...lowWords(doc), ...lowWords(clinic), ...lowWords(executor), ...systemWords, ...brandWords];
-  const patient = voiceNameAfter(raw, /(?:^|\s)пациент[а-я]*\s+/i) || voiceGuessName(raw, exclude);
+  const patient = voiceKnownPatient(voiceNameAfter(raw, /(?:^|\s)пациент[а-я]*\s+/i) || voiceGuessName(raw, exclude, knownPatients), knownPatients);
   return {
     work: voiceWork(rest2, knownWorks),
     units: voiceUnits(rest2),
@@ -480,8 +527,10 @@ function voiceStage(s) {
 // Какие несданные заказы похожи на фразу: пациент весит больше врача, вид работы — меньше всего
 function voiceMatchOrders(raw, orders) {
   const s = voiceNormalize(raw);
+  const toks = s.split(/\s+/).filter(t => t.length >= 4);
+  const pairs = s.split(/\s+/).filter(Boolean).map((t, i, a) => t + (a[i + 1] || "")).filter(t => t.length >= 6);
   const stemHit = text => (text || "").toLowerCase().replace(/ё/g, "е").split(/[^а-яa-z]+/).filter(w => w.length >= 4)
-    .filter(p => new RegExp(`\\s${p.slice(0, Math.max(4, p.length - 2))}`).test(s)).length;
+    .filter(p => new RegExp(`\\s${p.slice(0, Math.max(4, p.length - 2))}`).test(s) || [...toks, ...pairs].some(t => nameClose(t, p))).length;
   const typeOf = w => (VOICE_TYPES.find(([re]) => re.test(" " + w.toLowerCase() + " ")) || [])[1];
   const matOf = w => (VOICE_MATERIALS.find(([re]) => re.test(" " + w.toLowerCase().replace(/ё/g, "е") + " ")) || [])[1];
   // «обработка сырого циркония» — название этапа, а не материал заказа
@@ -501,7 +550,8 @@ function voiceMatchOrders(raw, orders) {
 function voiceIntent(raw, todayIso, orders, knownDoctors, knownWorks) {
   const s = voiceNormalize(raw);
   const stage = voiceStage(s);
-  const order = parseOrderSpeech(raw, todayIso, knownDoctors, knownWorks);
+  const knownPatients = [...new Set(orders.map(o => o.patient).filter(Boolean))];
+  const order = parseOrderSpeech(raw, todayIso, knownDoctors, knownWorks, knownPatients);
   order.stage = stage;
   const explicit = /\sэтап|перевед|переведи|перевести|передвин|\sна\s+(скан|отлив|моделир|фрез|обработ|запек|спек|синтер|печь|глазур|покрас|вклей|вклеи|сдач)/.test(s);
   const matches = stage && (explicit || !order.due) ? voiceMatchOrders(raw, orders) : [];
@@ -742,7 +792,8 @@ function openVoice() {
       if (rec !== r) return;          // остановили сами или запустили заново
       rec = null;
       if (!ta.isConnected) return;    // окно уже закрыто
-      if (finalText.trim()) handleVoice(ta.value.trim()); else if (/Слушаю/.test(document.getElementById("v-status")?.textContent || "")) status("Ничего не услышал. Нажмите «Слушать ещё раз».");
+      if (finalText.trim() && prefs.voice === "review") { status("Проверьте фразу и нажмите «Разобрать»."); ta.focus(); }
+      else if (finalText.trim()) handleVoice(ta.value.trim()); else if (/Слушаю/.test(document.getElementById("v-status")?.textContent || "")) status("Ничего не услышал. Нажмите «Слушать ещё раз».");
     };
     try { r.start(); } catch (e) { rec = null; status("Не получилось включить микрофон. Продиктуйте с клавиатуры."); }
   }
@@ -934,7 +985,9 @@ const ACCENTS = {
 const THEMES = [["system", "Как в системе"], ["light", "Светлая"], ["dark", "Тёмная"]];
 // Масштаб всего интерфейса (CSS zoom): текст, кнопки и календарь растут вместе
 const SCALES = [[0.8, "Совсем мелко"], [0.9, "Мельче"], [1, "Обычный"], [1.1, "Крупнее"]];
-let prefs = { theme: "system", accent: "teal", scale: 1, ...lsGet(LS_PREFS, {}) };
+let prefs = { theme: "system", accent: "teal", scale: 1, voice: "auto", ...lsGet(LS_PREFS, {}) };
+// Голос: "auto" — сразу заполнять форму, "review" — сначала показать фразу для правки
+const VOICE_MODES = [["auto", "Сразу заполнять форму"], ["review", "Сначала показать фразу"]];
 if (!SCALES.some(([k]) => k === prefs.scale)) prefs.scale = SCALES.reduce((best, [k]) => Math.abs(k - prefs.scale) < Math.abs(best - prefs.scale) ? k : best, 1);
 const darkMq = matchMedia("(prefers-color-scheme: dark)");
 const isDark = () => prefs.theme === "dark" || (prefs.theme === "system" && darkMq.matches);
@@ -957,10 +1010,14 @@ darkMq.addEventListener("change", applyPrefs);
 const MENU = [
   ["appearance", "Оформление", () => (THEMES.find(t => t[0] === prefs.theme) || THEMES[0])[1]],
   ["wishes", "Доработки", () => `отмечено ${wishesChecked()}`],
+  ["voice", "Голосовой ввод", () => prefs.voice === "review" ? "сначала фраза" : "сразу в форму"],
   ["sync", "Синхронизация", () => cloudConnected() ? "включена" : "выключена"],
 ];
 const MENU_PAGES = {
   wishes: () => renderWishes(),
+  voice: () => `
+    <div class="dsec"><h2>После распознавания</h2><div class="seg">${VOICE_MODES.map(([k, n]) => `<button data-set-voice="${k}" aria-pressed="${prefs.voice === k}">${n}</button>`).join("")}</div>
+      <div class="sub">«Сначала показать фразу» — можно поправить, если фамилия распозналась неверно («Чепуши Лкин»), и потом нажать «Разобрать».</div></div>`,
   appearance: () => `
     <div class="dsec"><h2>Тема</h2><div class="seg">${THEMES.map(([k, n]) => `<button data-set-theme="${k}" aria-pressed="${prefs.theme === k}">${n}</button>`).join("")}</div></div>
     <div class="dsec"><h2>Масштаб</h2><div class="seg">${SCALES.map(([k, n]) => `<button data-set-scale="${k}" aria-pressed="${prefs.scale === k}" aria-label="${n}" title="${n}"><span style="font-size:${Math.round(15 * k)}px">Аа</span></button>`).join("")}</div></div>
@@ -1080,7 +1137,7 @@ function openMenu(page) {
   m.onclick = e => {
     // Отпускание после долгого нажатия не должно переключать галочку
     if (lpFired) { lpFired = false; e.preventDefault(); return; }
-    const b = e.target.closest("[data-close], [data-page], [data-set-theme], [data-set-accent], [data-set-scale], [data-wish], [data-wish-add], [data-wish-remove], [data-wish-cancel], [data-wish-restore], [data-wish-edit], [data-wish-save], [data-wish-edit-cancel]");
+    const b = e.target.closest("[data-close], [data-page], [data-set-theme], [data-set-accent], [data-set-scale], [data-set-voice], [data-wish], [data-wish-add], [data-wish-remove], [data-wish-cancel], [data-wish-restore], [data-wish-edit], [data-wish-save], [data-wish-edit-cancel]");
     if (!b) return;
     if (b.dataset.wishEdit) { editingWish = b.dataset.wishEdit; openMenu(page); return; }
     if (b.dataset.wishEditCancel) { editingWish = null; openMenu(page); return; }
@@ -1111,6 +1168,7 @@ function openMenu(page) {
       if (b.dataset.setTheme) prefs.theme = b.dataset.setTheme;
       if (b.dataset.setAccent) prefs.accent = b.dataset.setAccent;
       if (b.dataset.setScale) prefs.scale = +b.dataset.setScale;
+      if (b.dataset.setVoice) prefs.voice = b.dataset.setVoice;
       lsSet(LS_PREFS, prefs); applyPrefs(); openMenu(page);
     }
   };
