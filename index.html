@@ -198,6 +198,7 @@ h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: u
 .actions .danger { border: 1px solid var(--bad); color: var(--bad); background: none; padding: 12px 14px; border-radius: 12px; }
 .actions .danger.armed { background: var(--bad); color: var(--surface); }
 .msg { font-size: 14px; }
+.rework { color: var(--bad); font-size: 13px; font-weight: 600; margin-top: 2px; overflow-wrap: anywhere; }
 .stagepill { margin-top: 6px; border: 0; background: var(--accent-soft); color: var(--accent-ink); border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .stagepill.empty { background: none; border: 1px dashed var(--line); color: var(--muted); font-weight: 500; }
 .stagelist { display: grid; gap: 6px; }
@@ -587,6 +588,7 @@ function orderCard(o, showDate) {
     <input type="checkbox" class="check" data-done="${esc(o.id)}" ${o.done ? "checked" : ""} aria-label="Готово">
     <div class="body">
       <div class="work">${esc(o.work || "Работа")}${o.units > 1 ? ` × ${o.units}` : ""}</div>
+      ${o.reworks?.length ? `<div class="rework">↩ Возврат${o.reworks.length > 1 ? ` ×${o.reworks.length}` : ""}${o.reworks.at(-1).reason ? ": " + esc(o.reworks.at(-1).reason) : ""}</div>` : ""}
       ${o.stage ? `<button class="stagepill" data-stage="${esc(o.id)}">${esc(stageName(o.stage))} · ${STAGES.findIndex(st => st[0] === o.stage) + 1}/${STAGES.length}</button>`
         : o.done ? "" : `<button class="stagepill empty" data-stage="${esc(o.id)}">+ этап</button>`}
       ${who ? `<div class="meta">${who}</div>` : ""}
@@ -738,7 +740,7 @@ function openForm(o, opts = {}) {
     <div class="actions">
       <button type="submit" class="primary">Сохранить</button>
       <button type="button" class="ghost" id="f-cancel">Отмена</button>
-      ${isNew ? "" : `<button type="button" class="danger" id="f-del">Удалить</button>`}
+      ${isNew ? "" : `<button type="button" class="ghost" id="f-rework">Вернули</button><button type="button" class="danger" id="f-del">Удалить</button>`}
     </div>
     <datalist id="dl-work">${WORKS.map(w => `<option value="${esc(w)}">`).join("")}</datalist>
     <datalist id="dl-doc">${doctors.map(w => `<option value="${esc(w)}">`).join("")}</datalist>
@@ -746,6 +748,8 @@ function openForm(o, opts = {}) {
   const close = () => { m.innerHTML = ""; render(); };
   document.getElementById("ov").addEventListener("click", e => { if (isBackdrop(e)) close(); });
   document.getElementById("f-cancel").onclick = close;
+  const rw = document.getElementById("f-rework");
+  if (rw) rw.onclick = () => openRework(o.id);
   const del = document.getElementById("f-del");
   if (del) del.onclick = () => {
     if (!del.classList.contains("armed")) { del.classList.add("armed"); del.textContent = "Точно удалить?"; return; }
@@ -762,6 +766,35 @@ function openForm(o, opts = {}) {
     if (isNew) go(next.due);
   });
   if (!opts.heard) setTimeout(() => document.getElementById("f-work")?.focus(), 30);
+}
+
+/* ---------- возврат на доработку ---------- */
+const REWORK_REASONS = ["Не подошёл цвет", "Не села", "Скол / трещина", "Переделать форму", "Не тот прикус"];
+function openRework(id) {
+  const o = store.orders[id]; if (!o) return;
+  const m = document.getElementById("modal"); resetModal(m);
+  const due = o.due > today() ? o.due : addDays(today(), 2);
+  m.innerHTML = `<div class="overlay" id="ov"><form class="sheet" id="rw" autocomplete="off">
+    <h2>Возврат на доработку</h2>
+    <div class="sub">${esc(o.work || "Работа")}${o.patient ? ", пациент " + esc(o.patient) : ""}${o.doctor ? " — " + esc(o.doctor) : ""}${o.reworks?.length ? ` · уже возвращали ${o.reworks.length} раз` : ""}</div>
+    <div class="field"><label for="rw-reason">Причина</label><input id="rw-reason" list="dl-rw" placeholder="Не подошёл цвет"></div>
+    <div class="two">
+      <div class="field"><label for="rw-due">Новая дата сдачи</label><input id="rw-due" type="date" required value="${esc(due)}"></div>
+      <div class="field"><label for="rw-stage">Продолжить с этапа</label><select id="rw-stage"><option value="">— не указан —</option>${STAGES.filter(([k]) => k !== "handoff").map(([k, n]) => `<option value="${k}">${n}</option>`).join("")}</select></div>
+    </div>
+    <div class="actions"><button type="submit" class="primary">Вернуть в работу</button><button type="button" class="ghost" id="rw-cancel">Отмена</button></div>
+    <datalist id="dl-rw">${REWORK_REASONS.map(r => `<option value="${esc(r)}">`).join("")}</datalist>
+  </form></div>`;
+  const close = () => { m.innerHTML = ""; render(); };
+  document.getElementById("ov").addEventListener("click", e => { if (isBackdrop(e) || e.target.id === "rw-cancel") close(); });
+  document.getElementById("rw").addEventListener("submit", e => {
+    e.preventDefault();
+    const reason = document.getElementById("rw-reason").value.trim(), nd = document.getElementById("rw-due").value, st = document.getElementById("rw-stage").value;
+    m.innerHTML = "";
+    putOrder({ ...store.orders[id], done: false, due: nd, stage: st, reworks: [...(store.orders[id].reworks || []), { at: today(), reason }] });
+    go(nd);
+  });
+  setTimeout(() => document.getElementById("rw-reason")?.focus(), 30);
 }
 
 /* ---------- голосовой ввод ---------- */
