@@ -86,11 +86,17 @@ button { cursor: pointer; }
 .swatches { display: flex; flex-wrap: wrap; gap: 12px; }
 .sw { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--c); }
 .sw[aria-pressed="true"] { outline: 3px solid var(--fg); outline-offset: 3px; }
-.wish { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.wish { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .wish label { min-width: 0; overflow-wrap: anywhere; }
 .wish b { display: block; font-weight: 600; }
 .wish label span { display: block; color: var(--muted); font-size: 13px; }
-.wdel { border: 0; background: none; color: var(--muted); font-size: 20px; line-height: 1; padding: 2px 4px; }
+.wish { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; border-radius: 10px; }
+.wish.confirm { background: var(--bad-bg); padding-inline: 8px; }
+.wconfirm { display: none; grid-column: 1 / -1; gap: 8px; }
+.wish.confirm .wconfirm { display: flex; }
+.wconfirm button { border-radius: 10px; padding: 8px 14px; font-weight: 600; font-size: 14px; }
+.wremove { border: 0; background: var(--bad); color: var(--surface); }
+.wcancel { border: 1px solid var(--line); background: var(--surface); }
 .drawer .linkbtn { justify-self: start; }
 .syncbtn { border: 0; background: none; color: var(--muted); font-size: 13px; padding: 4px 0; white-space: nowrap; }
 .syncbtn.ok { color: var(--ok); }
@@ -506,8 +512,9 @@ const ACCENTS = {
 };
 const THEMES = [["system", "Как в системе"], ["light", "Светлая"], ["dark", "Тёмная"]];
 // Масштаб всего интерфейса (CSS zoom): текст, кнопки и календарь растут вместе
-const SCALES = [[0.9, "Мельче"], [1, "Обычный"], [1.12, "Крупнее"], [1.25, "Ещё крупнее"]];
+const SCALES = [[0.8, "Совсем мелко"], [0.9, "Мельче"], [1, "Обычный"], [1.1, "Крупнее"]];
 let prefs = { theme: "system", accent: "teal", scale: 1, ...lsGet(LS_PREFS, {}) };
+if (!SCALES.some(([k]) => k === prefs.scale)) prefs.scale = SCALES.reduce((best, [k]) => Math.abs(k - prefs.scale) < Math.abs(best - prefs.scale) ? k : best, 1);
 const darkMq = matchMedia("(prefers-color-scheme: dark)");
 const isDark = () => prefs.theme === "dark" || (prefs.theme === "system" && darkMq.matches);
 
@@ -580,29 +587,36 @@ const WISHES = [
   ]],
 ];
 const customWishes = () => Object.entries(store.wishes).filter(([, w]) => w.custom && !w.deleted).sort((a, b) => (a[1].createdAt || 0) - (b[1].createdAt || 0));
-const wishesChecked = () => Object.values(store.wishes).filter(w => w.checked && !w.deleted).length;
+const wishesChecked = () => Object.values(store.wishes).filter(w => w.checked && !w.deleted && !w.hidden).length;
+const hiddenWishes = () => Object.entries(store.wishes).filter(([, w]) => w.hidden && !w.custom);
 function putWish(id, patch) {
   store.wishes[id] = { ...store.wishes[id], ...patch, updatedAt: Date.now() };
   saveLocal(); lsSet(LS_DIRTY, true); scheduleSync();
 }
-const wishRow = (id, title, desc, w = store.wishes[id] || {}) => `<div class="wish">
+const wishRow = (id, title, desc, w = store.wishes[id] || {}) => `<div class="wish" data-row="${esc(id)}">
   <input type="checkbox" class="check" id="w-${esc(id)}" data-wish="${esc(id)}" ${w.checked ? "checked" : ""}>
   <label for="w-${esc(id)}"><b>${esc(title)}</b>${desc ? `<span>${esc(desc)}</span>` : ""}</label>
-  ${w.custom ? `<button class="wdel" data-wish-del="${esc(id)}" aria-label="Удалить просьбу">×</button>` : ""}</div>`;
+  <div class="wconfirm"><button class="wremove" data-wish-remove="${esc(id)}">Удалить</button><button class="wcancel" data-wish-cancel="1">Отмена</button></div></div>`;
 function renderWishes() {
   const own = customWishes();
-  return `<div class="sub">Отметь, что нужно сделать. Своё можно дописать в самом низу.</div>
-    ${WISHES.map(([group, items]) => `<div class="dsec"><h2>${group}</h2>${items.map(([id, t, d]) => wishRow(id, t, d)).join("")}</div>`).join("")}
+  const hidden = hiddenWishes().length;
+  return `<div class="sub">Отметь, что нужно сделать. Своё можно дописать в самом низу. Долгое нажатие на пункт — удалить.</div>
+    ${WISHES.map(([group, items]) => {
+      const shown = items.filter(([id]) => !(store.wishes[id] || {}).hidden);
+      return shown.length ? `<div class="dsec"><h2>${group}</h2>${shown.map(([id, t, d]) => wishRow(id, t, d)).join("")}</div>` : "";
+    }).join("")}
     <div class="dsec"><h2>Свои просьбы</h2>${own.map(([id, w]) => wishRow(id, w.text, "")).join("")}
       <div class="field"><label for="w-new">Новая просьба</label><textarea id="w-new" rows="2" placeholder="Что ещё добавить?"></textarea></div>
-      <button class="linkbtn" data-wish-add="1">Добавить</button></div>`;
+      <button class="linkbtn" data-wish-add="1">Добавить</button></div>
+    ${hidden ? `<button class="dback" data-wish-restore="1">Вернуть удалённые пункты (${hidden})</button>` : ""}`;
 }
 
+let lpFired = false, menuPage = null;   // открытая страница меню — в переменной, не в атрибуте: иначе [data-page] ловит сам контейнер
 function openMenu(page) {
   const m = document.getElementById("modal");
   const first = !m.querySelector(".drawer");
-  const keepScroll = !first && m.dataset.page === page ? m.querySelector(".drawer").scrollTop : 0;
-  m.dataset.page = page;
+  const keepScroll = !first && menuPage === page ? m.querySelector(".drawer").scrollTop : 0;
+  menuPage = page;
   const title = page === "main" ? "Меню" : MENU.find(x => x[0] === page)[1];
   const body = page === "main"
     ? `<div class="mitems">${MENU.map(([k, n, hint]) => `<button class="mitem" data-page="${k}"><span>${n}</span><span class="hint">${hint()} ›</span></button>`).join("")}</div>`
@@ -612,11 +626,33 @@ function openMenu(page) {
     <div class="dhead"><h2 class="dtitle">${title}</h2><button class="dclose" data-close="1" aria-label="Закрыть">×</button></div>
     ${body}</nav>`;
   m.querySelector(".drawer").scrollTop = keepScroll;
+  let lpTimer = null, x0 = 0, y0 = 0;
+  m.onpointerdown = e => {
+    const row = e.target.closest(".wish[data-row]");
+    if (!row || e.target.closest(".wconfirm")) return;
+    lpFired = false; x0 = e.clientX; y0 = e.clientY;
+    lpTimer = setTimeout(() => {
+      lpFired = true;
+      m.querySelectorAll(".wish.confirm").forEach(r => r.classList.remove("confirm"));
+      row.classList.add("confirm");
+      navigator.vibrate?.(30);
+    }, 550);
+  };
+  m.onpointermove = e => { if (lpTimer && (Math.abs(e.clientX - x0) > 10 || Math.abs(e.clientY - y0) > 10)) { clearTimeout(lpTimer); lpTimer = null; } };
+  m.onpointerup = m.onpointercancel = () => { clearTimeout(lpTimer); lpTimer = null; };
   m.onclick = e => {
-    const b = e.target.closest("[data-close], [data-page], [data-set-theme], [data-set-accent], [data-set-scale], [data-wish], [data-wish-add], [data-wish-del]");
+    // Отпускание после долгого нажатия не должно переключать галочку
+    if (lpFired) { lpFired = false; e.preventDefault(); return; }
+    const b = e.target.closest("[data-close], [data-page], [data-set-theme], [data-set-accent], [data-set-scale], [data-wish], [data-wish-add], [data-wish-remove], [data-wish-cancel], [data-wish-restore]");
     if (!b) return;
     if (b.dataset.wish) { putWish(b.dataset.wish, { checked: b.checked }); return; }
-    if (b.dataset.wishDel) { putWish(b.dataset.wishDel, { deleted: true }); openMenu(page); return; }
+    if (b.dataset.wishCancel) { b.closest(".wish").classList.remove("confirm"); return; }
+    if (b.dataset.wishRemove) {
+      const id = b.dataset.wishRemove;
+      putWish(id, (store.wishes[id] || {}).custom ? { deleted: true } : { hidden: true });
+      openMenu(page); return;
+    }
+    if (b.dataset.wishRestore) { hiddenWishes().forEach(([id]) => putWish(id, { hidden: false })); openMenu(page); return; }
     if (b.dataset.wishAdd) {
       const text = document.getElementById("w-new").value.trim();
       if (!text) return;
