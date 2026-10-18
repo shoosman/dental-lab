@@ -77,7 +77,6 @@ h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: u
 .notice.remind { background: var(--warn-bg); border-left: 4px solid var(--warn); }
 .notice.overdue { background: var(--bad-bg); border-left: 4px solid var(--bad); }
 .notice.info { background: var(--surface); border: 1px dashed var(--line); color: var(--muted); }
-.notice.info .linkbtn { justify-self: start; margin-top: 4px; }
 .notice b { font-weight: 700; }
 
 .list { display: grid; gap: 8px; }
@@ -210,9 +209,7 @@ function orderCard(o, showDate) {
 
 function renderDay() {
   const t = today(), d = S.sel, list = dueOn(d).sort(byWork), open = openOn(d).length;
-  let h = "";
-  if (!cloudConnected()) h += `<div class="notice info">Синхронизация не включена: заказы видны только на этом устройстве.<button class="linkbtn" data-sync="1">Включить синхронизацию</button></div>`;
-  h += `<section class="dayhead">
+  let h = `<section class="dayhead">
     <button class="iconbtn" data-shift="-1" aria-label="Предыдущий день">‹</button>
     <div class="grow"><h1>${rel(d)}, ${human(d)}</h1><div class="sub">${WD[parse(d).getDay()]} · ${chip(open)}</div></div>
     <button class="iconbtn" data-shift="1" aria-label="Следующий день">›</button>
@@ -272,7 +269,7 @@ document.addEventListener("click", e => {
   if (b.id === "tab-day") { S.view = "day"; render(); }
   else if (b.id === "tab-cal") { const p = parse(S.sel); S.calY = p.getFullYear(); S.calM = p.getMonth(); S.view = "cal"; render(); }
   else if (b.id === "fab") openForm(null);
-  else if (b.id === "syncbtn" || b.dataset.sync) openSync();
+  else if (b.id === "syncbtn") openSync();
   else if (b.dataset.goto) go(b.dataset.goto);
   else if (b.dataset.shift) go(addDays(S.sel, +b.dataset.shift));
   else if (b.dataset.month) { const d = new Date(S.calY, S.calM + +b.dataset.month, 1); S.calY = d.getFullYear(); S.calM = d.getMonth(); render(); }
