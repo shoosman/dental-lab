@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Журнал зуботехнической лаборатории</title>
+<meta name="theme-color" content="#1f7a78">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Лаборатория">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600&display=swap">
+<style>
+/* Layout: одна колонка до 640px, липкая шапка с двумя вкладками; день — карточки заказов, календарь — сетка 7×N */
+:root {
+  --bg: #f3f6f6;
+  --surface: #ffffff;
+  --line: #d9e2e2;
+  --fg: #17282b;
+  --muted: #5d7275;
+  --accent: #1f7a78;
+  --accent-soft: #dcefee;
+  --ok: #2e8b57; --ok-bg: #dff3e6;
+  --warn: #b27a00; --warn-bg: #fdf0c8;
+  --bad: #c0392b; --bad-bg: #fbe0dc;
+  --font-display: "Unbounded", "Golos Text", system-ui, sans-serif;
+  --font-body: "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #0f1a1c; --surface: #172427; --line: #29393c; --fg: #e4eeee; --muted: #93a8aa;
+  --accent: #5cc4c0; --accent-soft: #1b3a3a;
+  --ok: #5fd08d; --ok-bg: #15362a; --warn: #f0c04a; --warn-bg: #3a3014; --bad: #ff7b6b; --bad-bg: #401d1a;
+  color-scheme: dark; } }
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.45 var(--font-body); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.top { position: sticky; top: 0; z-index: 5; background: var(--bg);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: calc(12px + env(safe-area-inset-top, 0px)); padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.top-in, .wrap { max-width: 640px; margin: 0 auto; }
+.brandrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.brand { font: 600 13px/1 var(--font-display); letter-spacing: .04em; color: var(--accent); text-transform: uppercase; }
+.syncbtn { border: 0; background: none; color: var(--muted); font-size: 13px; padding: 4px 0; white-space: nowrap; }
+.syncbtn.ok { color: var(--ok); }
+.syncbtn.err { color: var(--bad); }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.tabs button { border: 0; background: none; padding: 10px; border-radius: 9px; font-weight: 600; color: var(--muted); }
+.tabs button[aria-selected="true"] { background: var(--accent); color: var(--surface); }
+
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-top: 16px; padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 20px; }
+h1 { font: 600 clamp(22px, 6vw, 28px)/1.15 var(--font-display); margin: 0; text-wrap: balance; }
+h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.dayhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dayhead .grow { flex: 1; min-width: 0; }
+.sub { color: var(--muted); font-size: 14px; }
+.iconbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; width: 40px; height: 40px; font-size: 20px; line-height: 1; }
+.linkbtn { border: 0; background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 9px 12px; font-weight: 600; font-size: 14px; }
+
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.l0 { background: var(--accent-soft); color: var(--muted); }
+.l1 { background: var(--ok-bg); color: var(--ok); }
+.l2 { background: var(--warn-bg); color: var(--warn); }
+.l3 { background: var(--bad-bg); color: var(--bad); }
+
+.notice { border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; }
+.notice.remind { background: var(--warn-bg); border-left: 4px solid var(--warn); }
+.notice.overdue { background: var(--bad-bg); border-left: 4px solid var(--bad); }
+.notice.info { background: var(--surface); border: 1px dashed var(--line); color: var(--muted); }
+.notice.info .linkbtn { justify-self: start; margin-top: 4px; }
+.notice b { font-weight: 700; }
+
+.list { display: grid; gap: 8px; }
+.order { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 12px 12px 14px; }
+.order.done { opacity: .55; }
+.order.done .work { text-decoration: line-through; }
+.order .body { min-width: 0; }
+.work { font-weight: 600; overflow-wrap: anywhere; }
+.meta { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+.note { font-size: 14px; margin-top: 4px; overflow-wrap: anywhere; }
+.check { width: 26px; height: 26px; margin: 2px 0 0; accent-color: var(--ok); }
+.edit { border: 0; background: none; color: var(--muted); font-size: 14px; padding: 4px 6px; text-decoration: underline; }
+.empty { color: var(--muted); padding: 14px; text-align: center; background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; }
+
+.upcoming { display: grid; gap: 8px; }
+.uday { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; display: grid; gap: 4px; text-align: left; width: 100%; }
+.uday .row { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.uday ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
+
+.fab { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); border: 0; background: var(--accent); color: var(--surface); font-weight: 700; padding: 14px 20px; border-radius: 999px; box-shadow: 0 6px 20px rgb(0 0 0 / .18); z-index: 6; }
+
+.calhead { display: flex; align-items: center; gap: 8px; }
+.calhead h1 { flex: 1; text-align: center; font-size: 20px; }
+.grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.wd { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); padding-block: 4px; }
+.cell { aspect-ratio: 1 / 1.05; max-width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 4px; display: flex; flex-direction: column; justify-content: space-between; align-items: stretch; text-align: left; min-width: 0; }
+.cell .n { font-size: 14px; font-variant-numeric: tabular-nums; }
+.cell .c { align-self: flex-end; font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
+.cell.out { visibility: hidden; }
+.cell.today { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cell.past { opacity: .6; }
+.cell.l1 { background: var(--ok-bg); border-color: transparent; }
+.cell.l2 { background: var(--warn-bg); border-color: transparent; }
+.cell.l3 { background: var(--bad-bg); border-color: transparent; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.overlay { position: fixed; inset: 0; background: rgb(0 0 0 / .4); z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
+.sheet { background: var(--surface); width: 100%; max-width: 560px; max-height: 92%; overflow: auto; border-radius: 18px 18px 0 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: 18px; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 12px; }
+@media (min-width: 640px) { .overlay { align-items: center; } .sheet { border-radius: 18px; } }
+.sheet h2 { font: 600 18px/1.2 var(--font-display); text-transform: none; letter-spacing: 0; color: var(--fg); }
+.sheet ol { margin: 0; padding-left: 20px; color: var(--muted); font-size: 14px; display: grid; gap: 4px; }
+.sheet code { font-size: 13px; background: var(--bg); padding: 1px 4px; border-radius: 4px; }
+.field { display: grid; gap: 4px; }
+.field label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.field input, .field textarea { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; width: 100%; min-width: 0; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.donebox { display: flex; gap: 10px; align-items: center; font-weight: 600; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.actions .primary { flex: 1; border: 0; background: var(--accent); color: var(--surface); padding: 12px; border-radius: 12px; font-weight: 700; }
+.actions .ghost { border: 1px solid var(--line); background: none; padding: 12px 14px; border-radius: 12px; }
+.actions .danger { border: 1px solid var(--bad); color: var(--bad); background: none; padding: 12px 14px; border-radius: 12px; }
+.actions .danger.armed { background: var(--bad); color: var(--surface); }
+.msg { font-size: 14px; }
+.msg.err { color: var(--bad); }
+.msg.ok { color: var(--ok); }
+@media (prefers-reduced-motion: no-preference) { .order, .cell, .tabs button { transition: background .15s, opacity .15s; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brandrow">
+      <div class="brand">Зуботехническая лаборатория</div>
+      <button class="syncbtn" id="syncbtn">☁ не подключено</button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button id="tab-day" role="tab" aria-selected="true">День</button>
+      <button id="tab-cal" role="tab" aria-selected="false">Календарь</button>
+    </div>
+  </div>
+</header>
+<main class="wrap" id="app"></main>
+<button class="fab" id="fab">+ Заказ</button>
+<div id="modal"></div>
+
+<script>
+const WORKS = ["Коронка металлокерамика","Коронка цирконий","Коронка E.max","Временная коронка","Винир","Вкладка","Мост","Бюгельный протез","Съёмный протез","Каппа","Ремонт протеза"];
+const MONTHS = ["январь","февраль","март","апрель","май","июнь","июль","август","сентябрь","октябрь","ноябрь","декабрь"];
+const MONTHS_GEN = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+const WD = ["воскресенье","понедельник","вторник","среда","четверг","пятница","суббота"];
+
+/* ---------- локальное хранилище ---------- */
+// store.orders: id -> заказ; удалённые остаются «надгробием» { deleted: true }, чтобы другое устройство не вернуло их при слиянии
+const LS_DATA = "lab-orders", LS_SYNC = "lab-sync", LS_DIRTY = "lab-dirty";
+const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+let store = lsGet(LS_DATA, { orders: {} });
+const saveLocal = () => lsSet(LS_DATA, store);
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+
+const S = { view: "day", sel: null, calY: 0, calM: 0 };
+const live = () => Object.values(store.orders).filter(o => !o.deleted && o.due);
+
+/* ---------- даты ---------- */
+const pad = n => String(n).padStart(2, "0");
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parse = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
+const today = () => iso(new Date());
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const human = s => { const d = parse(s); return `${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`; };
+const cap = s => s[0].toUpperCase() + s.slice(1);
+const rel = s => { const t = today(); if (s === t) return "Сегодня"; if (s === addDays(t, 1)) return "Завтра"; if (s === addDays(t, 2)) return "Послезавтра"; if (s === addDays(t, -1)) return "Вчера"; return cap(WD[parse(s).getDay()]); };
+const plural = (n, a, b, c) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? b : c; };
+const works = n => `${n} ${plural(n, "работа", "работы", "работ")}`;
+
+// Нагрузка дня по несданным работам: 1 — зелёный, 2–3 — жёлтый, 4 и больше — красный
+const level = n => n <= 0 ? 0 : n === 1 ? 1 : n <= 3 ? 2 : 3;
+const dueOn = d => live().filter(o => o.due === d);
+const openOn = d => dueOn(d).filter(o => !o.done);
+const chip = n => `<span class="chip l${level(n)}">${n ? works(n) : "свободно"}</span>`;
+const byWork = (a, b) => (a.done - b.done) || (a.doctor || "").localeCompare(b.doctor || "");
+
+/* ---------- экраны ---------- */
+function orderCard(o, showDate) {
+  const who = [o.patient && `пациент ${esc(o.patient)}`, o.doctor && esc(o.doctor)].filter(Boolean).join(" · ");
+  return `<div class="order${o.done ? " done" : ""}">
+    <input type="checkbox" class="check" data-done="${esc(o.id)}" ${o.done ? "checked" : ""} aria-label="Готово">
+    <div class="body">
+      <div class="work">${esc(o.work || "Работа")}${o.units > 1 ? ` × ${o.units}` : ""}</div>
+      ${who ? `<div class="meta">${who}</div>` : ""}
+      ${showDate ? `<div class="meta">сдать ${human(o.due)}</div>` : ""}
+      ${o.note ? `<div class="note">${esc(o.note)}</div>` : ""}
+    </div>
+    <button class="edit" data-edit="${esc(o.id)}">изменить</button>
+  </div>`;
+}
+
+function renderDay() {
+  const t = today(), d = S.sel, list = dueOn(d).sort(byWork), open = openOn(d).length;
+  let h = "";
+  if (!cloudConnected()) h += `<div class="notice info">Синхронизация не включена: заказы видны только на этом устройстве.<button class="linkbtn" data-sync="1">Включить синхронизацию</button></div>`;
+  h += `<section class="dayhead">
+    <button class="iconbtn" data-shift="-1" aria-label="Предыдущий день">‹</button>
+    <div class="grow"><h1>${rel(d)}, ${human(d)}</h1><div class="sub">${WD[parse(d).getDay()]} · ${chip(open)}</div></div>
+    <button class="iconbtn" data-shift="1" aria-label="Следующий день">›</button>
+    ${d !== t ? `<button class="linkbtn" data-goto="${t}">К сегодня</button>` : ""}
+  </section>`;
+
+  if (d === t) {
+    const overdue = live().filter(o => !o.done && o.due < t).sort((a, b) => a.due.localeCompare(b.due));
+    if (overdue.length) h += `<div class="notice overdue"><b>Просрочено: ${works(overdue.length)}</b><div class="list">${overdue.map(o => orderCard(o, true)).join("")}</div></div>`;
+    const r = [1, 2].map(k => [addDays(t, k), openOn(addDays(t, k)).length]).filter(([, n]) => n);
+    if (r.length) h += `<div class="notice remind"><b>Напоминание</b>${r.map(([dd, n]) => `<span>${rel(dd)} (${human(dd)}) сдать ${works(n)}</span>`).join("")}</div>`;
+  }
+
+  h += `<section><h2>На сдачу</h2><div class="list">${list.length ? list.map(o => orderCard(o)).join("") : `<div class="empty">На этот день заказов нет. Нажмите «+ Заказ», чтобы добавить.</div>`}</div></section>`;
+
+  const next = [1, 2, 3].map(k => addDays(d, k));
+  h += `<section><h2>Ближайшие дни</h2><div class="upcoming">${next.map(dd => {
+    const os = openOn(dd);
+    return `<button class="uday" data-goto="${dd}"><span class="row"><b>${rel(dd)}, ${human(dd)}</b>${chip(os.length)}</span>${os.length ? `<ul>${os.slice(0, 4).map(o => `<li>${esc(o.work)}${o.doctor ? ` — ${esc(o.doctor)}` : ""}</li>`).join("")}${os.length > 4 ? `<li>и ещё ${os.length - 4}</li>` : ""}</ul>` : ""}</button>`;
+  }).join("")}</div></section>`;
+  return h;
+}
+
+function renderCal() {
+  const y = S.calY, m = S.calM, t = today();
+  const first = new Date(y, m, 1), lead = (first.getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate();
+  let cells = "";
+  for (let i = 0; i < lead; i++) cells += `<div class="cell out"></div>`;
+  for (let dn = 1; dn <= days; dn++) {
+    const d = iso(new Date(y, m, dn)), n = openOn(d).length, all = dueOn(d).length;
+    const lv = d < t ? 0 : level(n);
+    cells += `<button class="cell l${lv}${d === t ? " today" : ""}${d < t ? " past" : ""}" data-goto="${d}" aria-label="${human(d)}: ${works(n)}">
+      <span class="n">${dn}</span><span class="c">${n || (all ? "✓" : "")}</span></button>`;
+  }
+  return `<section class="calhead">
+      <button class="iconbtn" data-month="-1" aria-label="Предыдущий месяц">‹</button>
+      <h1>${cap(MONTHS[m])} ${y}</h1>
+      <button class="iconbtn" data-month="1" aria-label="Следующий месяц">›</button>
+    </section>
+    <section class="grid">${["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map(w => `<div class="wd">${w}</div>`).join("")}${cells}</section>
+    <section class="legend"><span class="chip l1">1 работа</span><span class="chip l2">2–3 работы</span><span class="chip l3">4 и больше</span><span class="chip l0">✓ всё сдано</span></section>
+    <div class="sub">Число в клетке — сколько работ ещё не сдано. Нажмите на день, чтобы открыть его.</div>`;
+}
+
+const modalOpen = () => !!document.querySelector("#modal .overlay");
+function render() {
+  document.getElementById("tab-day").setAttribute("aria-selected", S.view === "day");
+  document.getElementById("tab-cal").setAttribute("aria-selected", S.view === "cal");
+  document.getElementById("app").innerHTML = S.view === "day" ? renderDay() : renderCal();
+}
+
+function go(d) { S.sel = d; S.view = "day"; const p = parse(d); S.calY = p.getFullYear(); S.calM = p.getMonth(); render(); window.scrollTo(0, 0); }
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("button, input");
+  if (!b || b.closest("#modal")) return;
+  if (b.id === "tab-day") { S.view = "day"; render(); }
+  else if (b.id === "tab-cal") { const p = parse(S.sel); S.calY = p.getFullYear(); S.calM = p.getMonth(); S.view = "cal"; render(); }
+  else if (b.id === "fab") openForm(null);
+  else if (b.id === "syncbtn" || b.dataset.sync) openSync();
+  else if (b.dataset.goto) go(b.dataset.goto);
+  else if (b.dataset.shift) go(addDays(S.sel, +b.dataset.shift));
+  else if (b.dataset.month) { const d = new Date(S.calY, S.calM + +b.dataset.month, 1); S.calY = d.getFullYear(); S.calM = d.getMonth(); render(); }
+  else if (b.dataset.edit) openForm(store.orders[b.dataset.edit]);
+  else if (b.dataset.done) putOrder({ ...store.orders[b.dataset.done], done: b.checked });
+});
+
+/* ---------- изменения ---------- */
+function putOrder(o) {
+  store.orders[o.id] = { ...o, updatedAt: Date.now() };
+  saveLocal(); lsSet(LS_DIRTY, true); render(); scheduleSync();
+}
+
+function openForm(o) {
+  const isNew = !o; o = o || { id: newId(), work: "", units: 1, patient: "", doctor: "", due: S.sel, note: "", done: false, createdAt: Date.now() };
+  const doctors = [...new Set(live().map(x => x.doctor).filter(Boolean))];
+  const m = document.getElementById("modal");
+  m.innerHTML = `<div class="overlay" id="ov"><form class="sheet" id="f" autocomplete="off">
+    <h2>${isNew ? "Новый заказ" : "Заказ"}</h2>
+    <div class="field"><label for="f-work">Что делаем</label><input id="f-work" list="dl-work" required value="${esc(o.work)}" placeholder="Коронка цирконий"></div>
+    <div class="two">
+      <div class="field"><label for="f-due">Дата сдачи</label><input id="f-due" type="date" required value="${esc(o.due)}"></div>
+      <div class="field"><label for="f-units">Единиц</label><input id="f-units" type="number" min="1" max="32" inputmode="numeric" value="${esc(o.units || 1)}"></div>
+    </div>
+    <div class="field"><label for="f-doctor">Врач / клиника</label><input id="f-doctor" list="dl-doc" value="${esc(o.doctor)}"></div>
+    <div class="field"><label for="f-patient">Пациент</label><input id="f-patient" value="${esc(o.patient)}"></div>
+    <div class="field"><label for="f-note">Комментарий</label><textarea id="f-note" rows="2" placeholder="цвет A2, примерка каркаса…">${esc(o.note)}</textarea></div>
+    <label class="donebox"><input type="checkbox" id="f-done" class="check" ${o.done ? "checked" : ""}> Готово / сдано</label>
+    <div class="actions">
+      <button type="submit" class="primary">Сохранить</button>
+      <button type="button" class="ghost" id="f-cancel">Отмена</button>
+      ${isNew ? "" : `<button type="button" class="danger" id="f-del">Удалить</button>`}
+    </div>
+    <datalist id="dl-work">${WORKS.map(w => `<option value="${esc(w)}">`).join("")}</datalist>
+    <datalist id="dl-doc">${doctors.map(w => `<option value="${esc(w)}">`).join("")}</datalist>
+  </form></div>`;
+  const close = () => { m.innerHTML = ""; render(); };
+  document.getElementById("ov").addEventListener("click", e => { if (e.target.id === "ov") close(); });
+  document.getElementById("f-cancel").onclick = close;
+  const del = document.getElementById("f-del");
+  if (del) del.onclick = () => {
+    if (!del.classList.contains("armed")) { del.classList.add("armed"); del.textContent = "Точно удалить?"; return; }
+    m.innerHTML = ""; putOrder({ id: o.id, deleted: true });
+  };
+  document.getElementById("f").addEventListener("submit", e => {
+    e.preventDefault();
+    const v = id => document.getElementById(id).value.trim();
+    const due = v("f-due");
+    m.innerHTML = "";
+    putOrder({ ...o, work: v("f-work"), due, units: Math.max(1, parseInt(v("f-units")) || 1), doctor: v("f-doctor"),
+      patient: v("f-patient"), note: v("f-note"), done: document.getElementById("f-done").checked });
+    if (isNew) go(due);
+  });
+  setTimeout(() => document.getElementById("f-work").focus(), 30);
+}
+
+/* ---------- синхронизация через секретный GitHub Gist ---------- */
+const GIST_FILE = "dental-lab-orders.json";
+const GIST_DESC = "Данные приложения «Журнал зуботехнической лаборатории»";
+const TOMBSTONE_TTL = 60 * 24 * 3600 * 1000;
+let sync = lsGet(LS_SYNC, { token: "", gistId: "" });
+let syncBusy = false, syncAgain = false, syncTimer = null;
+const cloudConnected = () => !!(sync.token && sync.gistId);
+
+async function gh(path, opts = {}) {
+  const r = await fetch("https://api.github.com" + path, { ...opts, cache: "no-store", headers: {
+    Authorization: "Bearer " + sync.token, Accept: "application/vnd.github+json", "Content-Type": "application/json" } });
+  if (!r.ok) { const e = new Error("GitHub " + r.status); e.status = r.status; throw e; }
+  return r.json();
+}
+
+async function findOrCreateGist() {
+  const list = await gh("/gists?per_page=100");
+  const found = list.find(g => g.files && g.files[GIST_FILE]);
+  if (found) return found.id;
+  const g = await gh("/gists", { method: "POST", body: JSON.stringify({ description: GIST_DESC, public: false, files: { [GIST_FILE]: { content: JSON.stringify(store) } } }) });
+  return g.id;
+}
+
+async function fetchRemote() {
+  const g = await gh("/gists/" + sync.gistId);
+  const f = g.files && g.files[GIST_FILE];
+  if (!f) return { orders: {} };
+  const text = f.truncated ? await (await fetch(f.raw_url, { cache: "no-store" })).text() : f.content;
+  try { const d = JSON.parse(text); return d && d.orders ? d : { orders: {} }; } catch (e) { return { orders: {} }; }
+}
+
+// По каждому заказу побеждает более поздняя правка; старые надгробия выбрасываем
+function merge(a, b) {
+  const out = { orders: {} }, cutoff = Date.now() - TOMBSTONE_TTL;
+  for (const src of [a.orders, b.orders]) for (const [id, o] of Object.entries(src)) {
+    const cur = out.orders[id];
+    if (!cur || (o.updatedAt || 0) > (cur.updatedAt || 0)) out.orders[id] = o;
+  }
+  for (const [id, o] of Object.entries(out.orders)) if (o.deleted && (o.updatedAt || 0) < cutoff) delete out.orders[id];
+  return out;
+}
+const sig = s => Object.keys(s.orders).sort().map(id => id + ":" + (s.orders[id].updatedAt || 0)).join("|");
+
+function setSyncStatus(text, cls) {
+  const b = document.getElementById("syncbtn");
+  b.textContent = text; b.className = "syncbtn" + (cls ? " " + cls : "");
+}
+const hhmm = () => { const d = new Date(); return pad(d.getHours()) + ":" + pad(d.getMinutes()); };
+
+function scheduleSync(delay = 1500) {
+  if (!cloudConnected()) return;
+  clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, delay);
+}
+
+async function syncNow() {
+  if (!cloudConnected()) { setSyncStatus("☁ не подключено"); return; }
+  if (syncBusy) { syncAgain = true; return; }
+  syncBusy = true; syncAgain = false;
+  setSyncStatus("☁ синхронизация…");
+  try {
+    const remote = await fetchRemote();
+    const merged = merge(store, remote);   // store читаем после await — правки, сделанные во время загрузки, не теряются
+    if (sig(merged) !== sig(store)) { store = merged; saveLocal(); if (!modalOpen()) render(); }
+    if (sig(merged) !== sig(remote)) await gh("/gists/" + sync.gistId, { method: "PATCH", body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify(merged) } } }) });
+    lsSet(LS_DIRTY, false);
+    setSyncStatus("☁ " + hhmm(), "ok");
+  } catch (e) {
+    setSyncStatus(e.status === 401 ? "☁ токен не подходит" : lsGet(LS_DIRTY, false) ? "☁ нет связи, отправлю позже" : "☁ нет связи", "err");
+  }
+  syncBusy = false;
+  if (syncAgain) syncNow();
+}
+
+function openSync() {
+  const m = document.getElementById("modal");
+  const on = cloudConnected();
+  m.innerHTML = `<div class="overlay" id="ov"><div class="sheet">
+    <h2>Синхронизация</h2>
+    ${on ? `<div class="sub">Заказы хранятся в вашем секретном GitHub Gist и обновляются на всех устройствах, где введён токен.</div>
+      <div class="actions"><button class="primary" id="s-now">Синхронизировать сейчас</button><button class="ghost" id="s-close">Закрыть</button></div>
+      <div class="actions"><button class="danger" id="s-off">Отключить на этом устройстве</button></div>`
+    : `<div class="field"><label for="s-token">Токен GitHub (только галочка «gist»)</label><input id="s-token" type="password" placeholder="ghp_…" autocomplete="off"></div>
+      <div class="actions"><button class="primary" id="s-connect">Подключить</button><button class="ghost" id="s-close">Закрыть</button></div>
+      <ol>
+        <li>Откройте <code>github.com/settings/tokens</code> → <b>Generate new token (classic)</b>.</li>
+        <li>Срок — <b>No expiration</b>, галочка только <b>gist</b>.</li>
+        <li>Скопируйте строку <code>ghp_…</code> и вставьте сюда. На каждом устройстве — тот же токен.</li>
+      </ol>`}
+    <div class="msg" id="s-msg" role="status"></div>
+  </div></div>`;
+  const close = () => { m.innerHTML = ""; render(); };
+  const msg = (t, c) => { const el = document.getElementById("s-msg"); el.textContent = t; el.className = "msg " + (c || ""); };
+  document.getElementById("ov").addEventListener("click", e => { if (e.target.id === "ov") close(); });
+  document.getElementById("s-close").onclick = close;
+  if (on) {
+    document.getElementById("s-now").onclick = async () => { await syncNow(); msg(document.getElementById("syncbtn").textContent, document.getElementById("syncbtn").classList.contains("err") ? "err" : "ok"); };
+    const off = document.getElementById("s-off");
+    off.onclick = () => {
+      if (!off.classList.contains("armed")) { off.classList.add("armed"); off.textContent = "Точно отключить? Заказы на устройстве останутся"; return; }
+      sync = { token: "", gistId: "" }; lsSet(LS_SYNC, sync); setSyncStatus("☁ не подключено"); close();
+    };
+  } else {
+    document.getElementById("s-connect").onclick = async e => {
+      const token = document.getElementById("s-token").value.trim();
+      if (!token) { msg("Вставьте токен в поле выше.", "err"); return; }
+      e.target.disabled = true; msg("Подключаю…");
+      sync = { token, gistId: "" };
+      try {
+        sync.gistId = await findOrCreateGist();
+        lsSet(LS_SYNC, sync);
+        await syncNow();
+        close();
+      } catch (err) {
+        sync = { token: "", gistId: "" }; e.target.disabled = false;
+        msg(err.status === 401 ? "GitHub не принял токен. Проверьте, что скопировали его целиком и отметили галочку «gist»."
+          : err.status === 403 || err.status === 404 ? "У токена нет доступа к Gist. Создайте новый с галочкой «gist»."
+          : "Нет связи с GitHub. Проверьте интернет и попробуйте ещё раз.", "err");
+      }
+    };
+  }
+}
+
+/* ---------- обновление самого приложения ---------- */
+// Сравниваем ETag страницы на GitHub Pages: изменился — значит, выложена новая версия, перезагружаемся
+let pageTag = null;
+async function currentTag() {
+  try { const r = await fetch(location.pathname, { method: "HEAD", cache: "no-store" }); return r.ok ? (r.headers.get("etag") || r.headers.get("last-modified")) : null; }
+  catch (e) { return null; }
+}
+async function checkAppUpdate() {
+  const t = await currentTag();
+  if (!t) return;
+  if (!pageTag) { pageTag = t; return; }
+  if (t !== pageTag && !modalOpen()) location.reload();
+}
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+
+/* ---------- запуск ---------- */
+S.sel = today(); { const p = new Date(); S.calY = p.getFullYear(); S.calM = p.getMonth(); }
+setSyncStatus(cloudConnected() ? "☁ …" : "☁ не подключено");
+render();
+syncNow();
+checkAppUpdate();
+
+let lastDay = today();
+document.addEventListener("visibilitychange", () => {
+  // Сворачивают — отправляем несохранённое сразу; не успеет — правка лежит локально и уйдёт при следующем открытии
+  if (document.hidden) { if (lsGet(LS_DIRTY, false)) { clearTimeout(syncTimer); syncNow(); } return; }
+  if (today() !== lastDay) { if (S.sel === lastDay) S.sel = today(); lastDay = today(); if (!modalOpen()) render(); }
+  syncNow(); checkAppUpdate();
+});
+setInterval(() => { if (!document.hidden) { syncNow(); checkAppUpdate(); } }, 30000);
+</script>
+</body>
+</html>
