@@ -574,6 +574,11 @@ function renderCal() {
 
 // Открыто любое окно или меню — тогда не перерисовываем и не перезагружаем страницу под ним
 const modalOpen = () => !!document.getElementById("modal").firstElementChild;
+// Клик по затемнению закрывает окно, только если и нажали на нём. Иначе выделение текста в поле,
+// отпущенное за краем окна, браузер засчитывает как клик по фону — и форма закрывалась.
+let downTarget = null;
+document.addEventListener("pointerdown", e => { downTarget = e.target; }, true);
+const isBackdrop = e => e.target.id === "ov" && downTarget === e.target;
 // Каждое окно начинает с чистого листа: обработчики меню не должны пережить его закрытие
 function resetModal(m) {
   m.onclick = m.onpointerdown = m.onpointermove = m.onpointerup = m.onpointercancel = null;
@@ -628,7 +633,7 @@ function openStagePicker(id) {
   </div></div>`;
   const close = () => { m.innerHTML = ""; render(); };
   document.getElementById("ov").addEventListener("click", e => {
-    if (e.target.id === "ov" || e.target.id === "st-cancel") return close();
+    if (isBackdrop(e) || e.target.id === "st-cancel") return close();
     if (e.target.id === "st-clear") { m.innerHTML = ""; return putOrder({ ...store.orders[id], stage: "" }); }
     const b = e.target.closest("[data-pick]");
     if (b) { m.innerHTML = ""; putOrder({ ...store.orders[id], stage: b.dataset.pick }); }
@@ -663,7 +668,7 @@ function openForm(o, opts = {}) {
     <datalist id="dl-doc">${doctors.map(w => `<option value="${esc(w)}">`).join("")}</datalist>
   </form></div>`;
   const close = () => { m.innerHTML = ""; render(); };
-  document.getElementById("ov").addEventListener("click", e => { if (e.target.id === "ov") close(); });
+  document.getElementById("ov").addEventListener("click", e => { if (isBackdrop(e)) close(); });
   document.getElementById("f-cancel").onclick = close;
   const del = document.getElementById("f-del");
   if (del) del.onclick = () => {
@@ -712,7 +717,7 @@ function openVoice() {
   const status = t => { const el = document.getElementById("v-status"); if (el) el.textContent = t; };
   const close = () => { stopRec(); m.innerHTML = ""; render(); };
   document.getElementById("ov").addEventListener("click", e => {
-    if (e.target.id === "ov" || e.target.id === "v-cancel") return close();
+    if (isBackdrop(e) || e.target.id === "v-cancel") return close();
     if (e.target.id === "v-again") return listen();
     if (e.target.id === "v-info") { const h = document.getElementById("v-help"); h.hidden = !h.hidden; e.target.setAttribute("aria-expanded", !h.hidden); return; }
     if (e.target.id === "v-go") { const text = ta.value.trim(); if (!text) return status("Скажите или напишите фразу."); stopRec(); handleVoice(text); }
@@ -759,7 +764,7 @@ function handleVoice(text) {
     <div class="actions"><button class="ghost" id="vm-new">Нет, это новый заказ</button><button class="ghost" id="vm-cancel">Отмена</button></div>
   </div></div>`;
   document.getElementById("ov").addEventListener("click", e => {
-    if (e.target.id === "ov" || e.target.id === "vm-cancel") { m.innerHTML = ""; return render(); }
+    if (isBackdrop(e) || e.target.id === "vm-cancel") { m.innerHTML = ""; return render(); }
     if (e.target.id === "vm-new") return openForm(null, { prefill: r.order, heard: text });
     const b = e.target.closest("[data-move]");
     if (b) { m.innerHTML = ""; putOrder({ ...store.orders[b.dataset.move], stage: r.stage }); }
@@ -878,7 +883,7 @@ function openSync() {
   const sheet = m.firstElementChild;
   const close = () => { if (!sheet.isConnected) return; m.innerHTML = ""; render(); };
   const msg = (t, c) => { const el = sheet.querySelector("#s-msg"); if (!sheet.isConnected || !el) return; el.textContent = t; el.className = "msg " + (c || ""); };
-  document.getElementById("ov").addEventListener("click", e => { if (e.target.id === "ov") close(); });
+  document.getElementById("ov").addEventListener("click", e => { if (isBackdrop(e)) close(); });
   document.getElementById("s-close").onclick = close;
   if (on) {
     document.getElementById("s-now").onclick = async () => {
