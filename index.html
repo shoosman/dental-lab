@@ -352,11 +352,12 @@ function openForm(o) {
   document.getElementById("f").addEventListener("submit", e => {
     e.preventDefault();
     const v = id => document.getElementById(id).value.trim();
-    const due = v("f-due");
+    // Сначала читаем поля, потом закрываем форму — после закрытия их уже нет в документе
+    const next = { ...o, work: v("f-work"), due: v("f-due"), units: Math.max(1, parseInt(v("f-units")) || 1), doctor: v("f-doctor"),
+      patient: v("f-patient"), note: v("f-note"), done: document.getElementById("f-done").checked };
     m.innerHTML = "";
-    putOrder({ ...o, work: v("f-work"), due, units: Math.max(1, parseInt(v("f-units")) || 1), doctor: v("f-doctor"),
-      patient: v("f-patient"), note: v("f-note"), done: document.getElementById("f-done").checked });
-    if (isNew) go(due);
+    putOrder(next);
+    if (isNew) go(next.due);
   });
   setTimeout(() => document.getElementById("f-work").focus(), 30);
 }
