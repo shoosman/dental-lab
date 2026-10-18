@@ -11,10 +11,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
 <script>
 // Тема до первой отрисовки, чтобы не мигало
-try { const p = JSON.parse(localStorage.getItem("lab-prefs") || "{}"); if (p.theme === "light" || p.theme === "dark") document.documentElement.setAttribute("data-theme", p.theme); } catch (e) {}
+try { const p = JSON.parse(localStorage.getItem("lab-prefs") || "{}"); if (p.theme === "light" || p.theme === "dark") document.documentElement.setAttribute("data-theme", p.theme); if (p.scale) document.documentElement.style.zoom = p.scale; } catch (e) {}
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600&display=swap">
@@ -79,8 +79,8 @@ button { cursor: pointer; }
 .mitem { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; border: 0; border-bottom: 1px solid var(--line); background: none; padding: 14px 2px; font-weight: 600; text-align: left; }
 .mitem .hint { color: var(--muted); font-weight: 400; font-size: 14px; }
 .dsec { display: grid; gap: 8px; }
-.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
-.seg button { border: 0; background: none; padding: 9px 4px; border-radius: 9px; font-weight: 600; font-size: 14px; color: var(--muted); }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.seg button { min-width: 0; border: 0; background: none; padding: 9px 4px; border-radius: 9px; font-weight: 600; font-size: 14px; color: var(--muted); }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
 .swatches { display: flex; flex-wrap: wrap; gap: 12px; }
 .sw { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--c); }
@@ -494,7 +494,9 @@ const ACCENTS = {
   graphite: { name: "Графит",     light: "#3d4a4d", dark: "#b4c3c5" },
 };
 const THEMES = [["system", "Как в системе"], ["light", "Светлая"], ["dark", "Тёмная"]];
-let prefs = { theme: "system", accent: "teal", ...lsGet(LS_PREFS, {}) };
+// Масштаб всего интерфейса (CSS zoom): текст, кнопки и календарь растут вместе
+const SCALES = [[0.9, "Мельче"], [1, "Обычный"], [1.12, "Крупнее"], [1.25, "Ещё крупнее"]];
+let prefs = { theme: "system", accent: "teal", scale: 1, ...lsGet(LS_PREFS, {}) };
 const darkMq = matchMedia("(prefers-color-scheme: dark)");
 const isDark = () => prefs.theme === "dark" || (prefs.theme === "system" && darkMq.matches);
 
@@ -503,6 +505,7 @@ function applyPrefs() {
   if (prefs.theme === "system") r.removeAttribute("data-theme"); else r.setAttribute("data-theme", prefs.theme);
   const a = ACCENTS[prefs.accent] || ACCENTS.teal;
   r.style.setProperty("--accent", isDark() ? a.dark : a.light);
+  r.style.zoom = prefs.scale === 1 ? "" : prefs.scale;
   document.querySelector('meta[name="theme-color"]').content = getComputedStyle(r).getPropertyValue("--bg").trim();
 }
 darkMq.addEventListener("change", applyPrefs);
@@ -516,6 +519,7 @@ const MENU = [
 const MENU_PAGES = {
   appearance: () => `
     <div class="dsec"><h2>Тема</h2><div class="seg">${THEMES.map(([k, n]) => `<button data-set-theme="${k}" aria-pressed="${prefs.theme === k}">${n}</button>`).join("")}</div></div>
+    <div class="dsec"><h2>Масштаб</h2><div class="seg">${SCALES.map(([k, n]) => `<button data-set-scale="${k}" aria-pressed="${prefs.scale === k}" aria-label="${n}" title="${n}"><span style="font-size:${Math.round(15 * k)}px">Аа</span></button>`).join("")}</div></div>
     <div class="dsec"><h2>Цвет</h2><div class="swatches">${Object.entries(ACCENTS).map(([k, a]) =>
       `<button class="sw" style="--c:${isDark() ? a.dark : a.light}" data-set-accent="${k}" aria-pressed="${prefs.accent === k}" aria-label="${a.name}" title="${a.name}"></button>`).join("")}</div>
       <div class="sub">Кнопки, вкладки и выделение. Зелёный, жёлтый и красный нагрузки не меняются.</div></div>`,
@@ -533,7 +537,7 @@ function openMenu(page) {
     <div class="dhead"><h2 class="dtitle">${title}</h2><button class="dclose" data-close="1" aria-label="Закрыть">×</button></div>
     ${body}</nav>`;
   m.onclick = e => {
-    const b = e.target.closest("[data-close], [data-page], [data-set-theme], [data-set-accent]");
+    const b = e.target.closest("[data-close], [data-page], [data-set-theme], [data-set-accent], [data-set-scale]");
     if (!b) return;
     if (b.dataset.close) { m.onclick = null; m.innerHTML = ""; render(); }
     else if (b.dataset.page === "sync") { m.onclick = null; m.innerHTML = ""; openSync(); }
@@ -541,6 +545,7 @@ function openMenu(page) {
     else {
       if (b.dataset.setTheme) prefs.theme = b.dataset.setTheme;
       if (b.dataset.setAccent) prefs.accent = b.dataset.setAccent;
+      if (b.dataset.setScale) prefs.scale = +b.dataset.setScale;
       lsSet(LS_PREFS, prefs); applyPrefs(); openMenu(page);
     }
   };
