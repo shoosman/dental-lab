@@ -359,7 +359,7 @@ function openForm(o) {
     putOrder(next);
     if (isNew) go(next.due);
   });
-  setTimeout(() => document.getElementById("f-work").focus(), 30);
+  setTimeout(() => document.getElementById("f-work")?.focus(), 30);
 }
 
 /* ---------- синхронизация через секретный GitHub Gist ---------- */
