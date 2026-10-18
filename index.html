@@ -86,6 +86,12 @@ button { cursor: pointer; }
 .swatches { display: flex; flex-wrap: wrap; gap: 12px; }
 .sw { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--c); }
 .sw[aria-pressed="true"] { outline: 3px solid var(--fg); outline-offset: 3px; }
+.wish { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.wish label { min-width: 0; overflow-wrap: anywhere; }
+.wish b { display: block; font-weight: 600; }
+.wish label span { display: block; color: var(--muted); font-size: 13px; }
+.wdel { border: 0; background: none; color: var(--muted); font-size: 20px; line-height: 1; padding: 2px 4px; }
+.drawer .linkbtn { justify-self: start; }
 .syncbtn { border: 0; background: none; color: var(--muted); font-size: 13px; padding: 4px 0; white-space: nowrap; }
 .syncbtn.ok { color: var(--ok); }
 .syncbtn.err { color: var(--bad); }
@@ -201,6 +207,7 @@ const LS_DATA = "lab-orders", LS_SYNC = "lab-sync", LS_DIRTY = "lab-dirty";
 const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 let store = lsGet(LS_DATA, { orders: {} });
+store.wishes = store.wishes || {};   // доработки: отметки и свои просьбы
 const saveLocal = () => lsSet(LS_DATA, store);
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 
@@ -390,22 +397,24 @@ async function findOrCreateGist() {
 async function fetchRemote() {
   const g = await gh("/gists/" + sync.gistId);
   const f = g.files && g.files[GIST_FILE];
-  if (!f) return { orders: {} };
+  if (!f) return { orders: {}, wishes: {} };
   const text = f.truncated ? await (await fetch(f.raw_url, { cache: "no-store" })).text() : f.content;
-  try { const d = JSON.parse(text); return d && d.orders ? d : { orders: {} }; } catch (e) { return { orders: {} }; }
+  try { const d = JSON.parse(text) || {}; return { orders: d.orders || {}, wishes: d.wishes || {} }; } catch (e) { return { orders: {}, wishes: {} }; }
 }
 
-// По каждому заказу побеждает более поздняя правка; старые надгробия выбрасываем
-function merge(a, b) {
-  const out = { orders: {} }, cutoff = Date.now() - TOMBSTONE_TTL;
-  for (const src of [a.orders, b.orders]) for (const [id, o] of Object.entries(src)) {
-    const cur = out.orders[id];
-    if (!cur || (o.updatedAt || 0) > (cur.updatedAt || 0)) out.orders[id] = o;
+// По каждой записи побеждает более поздняя правка; старые надгробия выбрасываем
+function mergeMap(x = {}, y = {}) {
+  const out = {}, cutoff = Date.now() - TOMBSTONE_TTL;
+  for (const src of [x, y]) for (const [id, o] of Object.entries(src)) {
+    const cur = out[id];
+    if (!cur || (o.updatedAt || 0) > (cur.updatedAt || 0)) out[id] = o;
   }
-  for (const [id, o] of Object.entries(out.orders)) if (o.deleted && (o.updatedAt || 0) < cutoff) delete out.orders[id];
+  for (const [id, o] of Object.entries(out)) if (o.deleted && (o.updatedAt || 0) < cutoff) delete out[id];
   return out;
 }
-const sig = s => Object.keys(s.orders).sort().map(id => id + ":" + (s.orders[id].updatedAt || 0)).join("|");
+const merge = (a, b) => ({ orders: mergeMap(a.orders, b.orders), wishes: mergeMap(a.wishes, b.wishes) });
+const sigMap = (m = {}) => Object.keys(m).sort().map(id => id + ":" + (m[id].updatedAt || 0)).join("|");
+const sig = s => sigMap(s.orders) + "#" + sigMap(s.wishes);
 
 function setSyncStatus(text, cls) {
   const b = document.getElementById("syncbtn");
@@ -516,9 +525,11 @@ darkMq.addEventListener("change", applyPrefs);
 // Новый раздел = строка в MENU + функция-страница в MENU_PAGES
 const MENU = [
   ["appearance", "Оформление", () => (THEMES.find(t => t[0] === prefs.theme) || THEMES[0])[1]],
+  ["wishes", "Доработки", () => `отмечено ${wishesChecked()}`],
   ["sync", "Синхронизация", () => cloudConnected() ? "включена" : "выключена"],
 ];
 const MENU_PAGES = {
+  wishes: () => renderWishes(),
   appearance: () => `
     <div class="dsec"><h2>Тема</h2><div class="seg">${THEMES.map(([k, n]) => `<button data-set-theme="${k}" aria-pressed="${prefs.theme === k}">${n}</button>`).join("")}</div></div>
     <div class="dsec"><h2>Масштаб</h2><div class="seg">${SCALES.map(([k, n]) => `<button data-set-scale="${k}" aria-pressed="${prefs.scale === k}" aria-label="${n}" title="${n}"><span style="font-size:${Math.round(15 * k)}px">Аа</span></button>`).join("")}</div></div>
@@ -527,9 +538,71 @@ const MENU_PAGES = {
       <div class="sub">Кнопки, вкладки и выделение. Зелёный, жёлтый и красный нагрузки не меняются.</div></div>`,
 };
 
+/* ---------- доработки: список идей с галочками + свои просьбы ---------- */
+// Тексты пунктов живут здесь, в Gist хранится только состояние (отмечено / своя просьба)
+const WISHES = [
+  ["Ход работ", [
+    ["stages", "Этапы работы", "Видно, на каком этапе заказ: модели, каркас, примерка, керамика, готово, сдано."],
+    ["fittings", "Даты примерок", "Кроме даты сдачи — промежуточные, например «примерка каркаса в среду»."],
+    ["rework", "Возврат на доработку", "Пометка «вернули» с причиной и новой датой."],
+    ["urgent", "Срочно", "Срочный заказ стоит в списке первым и заметно выделен."],
+    ["postpone", "Быстрый перенос даты", "Кнопка «+1 день» прямо на карточке заказа."],
+  ]],
+  ["Клиники и врачи", [
+    ["clinic", "Карточка клиники", "Врачи, телефон, адрес и все заказы клиники в одном месте."],
+    ["filter", "Фильтр по врачу или клинике", "Например, только работы для «Улыбки» на эту неделю."],
+    ["courier", "Список для курьера", "«Что везти завтра» по клиникам — скопировать и отправить."],
+  ]],
+  ["Деньги", [
+    ["price", "Цена и оплата", "У заказа есть цена и отметка «оплачено»."],
+    ["pricelist", "Прайс", "Цена подставляется сама по виду работы."],
+    ["month", "Итоги месяца", "Сколько работ сделано, на какую сумму и кто ещё не заплатил."],
+  ]],
+  ["Удобство ввода", [
+    ["voice", "Заказ голосом", "Сказать «коронка цирконий, Петров, Улыбка, к пятнице» — заказ заполнится сам."],
+    ["templates", "Шаблоны частых заказов", "Частый заказ добавляется одним нажатием."],
+    ["photos", "Фото к заказу", "Фото наряда, слепка или цвета."],
+  ]],
+  ["Напоминания", [
+    ["push", "Уведомления на телефон", "Утром: «Сегодня сдать 3 работы, завтра 2», даже если приложение закрыто."],
+    ["badge", "Цифра на иконке", "Сколько работ сдать сегодня — прямо на иконке."],
+  ]],
+  ["Сохранность и работа вдвоём", [
+    ["backup", "Резервная копия", "Сохранить все заказы в файл и восстановить из него."],
+    ["history", "История изменений", "Когда перенесли дату или отметили «сдано»."],
+    ["author", "Кто сделал", "Рядом с правкой — имя того, кто её внёс."],
+  ]],
+  ["Настройки и поиск", [
+    ["thresholds", "Свои границы цветов", "Самой выбирать, сколько работ — зелёный, жёлтый и красный."],
+    ["worktypes", "Свой список видов работ", "Править подсказки в поле «Что делаем»."],
+    ["archive", "Архив", "Старые сданные работы убираются из календаря, но не пропадают."],
+    ["search", "Поиск", "Найти заказ по пациенту, врачу или виду работы."],
+  ]],
+];
+const customWishes = () => Object.entries(store.wishes).filter(([, w]) => w.custom && !w.deleted).sort((a, b) => (a[1].createdAt || 0) - (b[1].createdAt || 0));
+const wishesChecked = () => Object.values(store.wishes).filter(w => w.checked && !w.deleted).length;
+function putWish(id, patch) {
+  store.wishes[id] = { ...store.wishes[id], ...patch, updatedAt: Date.now() };
+  saveLocal(); lsSet(LS_DIRTY, true); scheduleSync();
+}
+const wishRow = (id, title, desc, w = store.wishes[id] || {}) => `<div class="wish">
+  <input type="checkbox" class="check" id="w-${esc(id)}" data-wish="${esc(id)}" ${w.checked ? "checked" : ""}>
+  <label for="w-${esc(id)}"><b>${esc(title)}</b>${desc ? `<span>${esc(desc)}</span>` : ""}</label>
+  ${w.custom ? `<button class="wdel" data-wish-del="${esc(id)}" aria-label="Удалить просьбу">×</button>` : ""}</div>`;
+function renderWishes() {
+  const own = customWishes();
+  return `<div class="sub">Отметь, что нужно сделать. Своё можно дописать в самом низу.</div>
+    ${WISHES.map(([group, items]) => `<div class="dsec"><h2>${group}</h2>${items.map(([id, t, d]) => wishRow(id, t, d)).join("")}</div>`).join("")}
+    <div class="dsec"><h2>Свои просьбы</h2>${own.map(([id, w]) => wishRow(id, w.text, "")).join("")}
+      <div class="field"><label for="w-new">Новая просьба</label><textarea id="w-new" rows="2" placeholder="Что ещё добавить?"></textarea></div>
+      <button class="linkbtn" data-wish-add="1">Добавить</button></div>`;
+}
+
 function openMenu(page) {
   const m = document.getElementById("modal");
   const first = !m.querySelector(".drawer");
+  const keepScroll = !first && m.dataset.page === page ? m.querySelector(".drawer").scrollTop : 0;
+  m.dataset.page = page;
   const title = page === "main" ? "Меню" : MENU.find(x => x[0] === page)[1];
   const body = page === "main"
     ? `<div class="mitems">${MENU.map(([k, n, hint]) => `<button class="mitem" data-page="${k}"><span>${n}</span><span class="hint">${hint()} ›</span></button>`).join("")}</div>`
@@ -538,9 +611,18 @@ function openMenu(page) {
     ${page === "main" ? "" : `<button class="dback" data-page="main">‹ Меню</button>`}
     <div class="dhead"><h2 class="dtitle">${title}</h2><button class="dclose" data-close="1" aria-label="Закрыть">×</button></div>
     ${body}</nav>`;
+  m.querySelector(".drawer").scrollTop = keepScroll;
   m.onclick = e => {
-    const b = e.target.closest("[data-close], [data-page], [data-set-theme], [data-set-accent], [data-set-scale]");
+    const b = e.target.closest("[data-close], [data-page], [data-set-theme], [data-set-accent], [data-set-scale], [data-wish], [data-wish-add], [data-wish-del]");
     if (!b) return;
+    if (b.dataset.wish) { putWish(b.dataset.wish, { checked: b.checked }); return; }
+    if (b.dataset.wishDel) { putWish(b.dataset.wishDel, { deleted: true }); openMenu(page); return; }
+    if (b.dataset.wishAdd) {
+      const text = document.getElementById("w-new").value.trim();
+      if (!text) return;
+      putWish("c-" + newId(), { text, custom: true, checked: true, createdAt: Date.now() });
+      openMenu(page); return;
+    }
     if (b.dataset.close) { m.onclick = null; m.innerHTML = ""; render(); }
     else if (b.dataset.page === "sync") { m.onclick = null; m.innerHTML = ""; openSync(); }
     else if (b.dataset.page) openMenu(b.dataset.page);
