@@ -9,9 +9,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Meow Meow Lab">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="manifest" href="manifest.webmanifest?v=2">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2">
+<link rel="icon" href="icons/favicon-32.png?v=2" sizes="32x32">
 <script>
 // Тема до первой отрисовки, чтобы не мигало
 try { const p = JSON.parse(localStorage.getItem("lab-prefs") || "{}"); if (p.theme === "light" || p.theme === "dark") document.documentElement.setAttribute("data-theme", p.theme); if (p.scale) document.documentElement.style.zoom = p.scale; } catch (e) {}
