@@ -478,6 +478,8 @@ document.addEventListener("visibilitychange", () => {
   syncNow(); checkAppUpdate();
 });
 setInterval(() => { if (!document.hidden) { syncNow(); checkAppUpdate(); } }, 30000);
+// Появился интернет — сразу отправляем накопленное и забираем чужое
+window.addEventListener("online", () => syncNow());
 </script>
 </body>
 </html>
