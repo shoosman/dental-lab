@@ -3,15 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Журнал зуботехнической лаборатории</title>
+<title>Meow Meow Lab</title>
 <meta name="theme-color" content="#1f7a78">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Лаборатория">
+<meta name="apple-mobile-web-app-title" content="Meow Meow Lab">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/icon-192.png">
+<script>
+// Тема до первой отрисовки, чтобы не мигало
+try { const p = JSON.parse(localStorage.getItem("lab-prefs") || "{}"); if (p.theme === "light" || p.theme === "dark") document.documentElement.setAttribute("data-theme", p.theme); } catch (e) {}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600&display=swap">
 <style>
@@ -23,7 +27,7 @@
   --fg: #17282b;
   --muted: #5d7275;
   --accent: #1f7a78;
-  --accent-soft: #dcefee;
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--surface));
   --ok: #2e8b57; --ok-bg: #dff3e6;
   --warn: #b27a00; --warn-bg: #fdf0c8;
   --bad: #c0392b; --bad-bg: #fbe0dc;
@@ -31,11 +35,17 @@
   --font-body: "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) { :root {
+/* Тёмная тема: по системе (если в меню не выбрана светлая) или принудительно */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #0f1a1c; --surface: #172427; --line: #29393c; --fg: #e4eeee; --muted: #93a8aa;
-  --accent: #5cc4c0; --accent-soft: #1b3a3a;
+  --accent: #5cc4c0;
   --ok: #5fd08d; --ok-bg: #15362a; --warn: #f0c04a; --warn-bg: #3a3014; --bad: #ff7b6b; --bad-bg: #401d1a;
   color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0f1a1c; --surface: #172427; --line: #29393c; --fg: #e4eeee; --muted: #93a8aa;
+  --accent: #5cc4c0;
+  --ok: #5fd08d; --ok-bg: #15362a; --warn: #f0c04a; --warn-bg: #3a3014; --bad: #ff7b6b; --bad-bg: #401d1a;
+  color-scheme: dark; }
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -50,7 +60,31 @@ button { cursor: pointer; }
   padding-top: calc(12px + env(safe-area-inset-top, 0px)); padding-bottom: 10px; border-bottom: 1px solid var(--line); }
 .top-in, .wrap { max-width: 640px; margin: 0 auto; }
 .brandrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.brandleft { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .brand { font: 600 13px/1 var(--font-display); letter-spacing: .04em; color: var(--accent); text-transform: uppercase; }
+.menubtn { border: 0; background: none; color: var(--fg); font-size: 22px; line-height: 1; padding: 2px 4px 2px 0; }
+
+/* боковое меню */
+.drawer-ov { position: fixed; inset: 0; background: rgb(0 0 0 / .35); z-index: 20; }
+.drawer { position: fixed; top: 0; bottom: 0; left: 0; z-index: 21; width: min(320px, 86%); background: var(--surface); overflow: auto;
+  padding-top: calc(16px + env(safe-area-inset-top, 0px)); padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 16px; display: flex; flex-direction: column; gap: 14px;
+  box-shadow: 0 0 30px rgb(0 0 0 / .2); }
+@media (prefers-reduced-motion: no-preference) { .drawer.enter { animation: slidein .18s ease-out; } @keyframes slidein { from { transform: translateX(-100%); } } }
+.dhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dtitle { font: 600 18px/1.2 var(--font-display); margin: 0; text-transform: none; letter-spacing: 0; color: var(--fg); }
+.dclose, .dback { border: 0; background: none; color: var(--muted); font-size: 15px; padding: 6px 0; }
+.dclose { font-size: 22px; line-height: 1; }
+.mitems { display: grid; }
+.mitem { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; border: 0; border-bottom: 1px solid var(--line); background: none; padding: 14px 2px; font-weight: 600; text-align: left; }
+.mitem .hint { color: var(--muted); font-weight: 400; font-size: 14px; }
+.dsec { display: grid; gap: 8px; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.seg button { border: 0; background: none; padding: 9px 4px; border-radius: 9px; font-weight: 600; font-size: 14px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.swatches { display: flex; flex-wrap: wrap; gap: 12px; }
+.sw { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--c); }
+.sw[aria-pressed="true"] { outline: 3px solid var(--fg); outline-offset: 3px; }
 .syncbtn { border: 0; background: none; color: var(--muted); font-size: 13px; padding: 4px 0; white-space: nowrap; }
 .syncbtn.ok { color: var(--ok); }
 .syncbtn.err { color: var(--bad); }
@@ -141,7 +175,7 @@ h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: u
 <header class="top">
   <div class="top-in">
     <div class="brandrow">
-      <div class="brand">Зуботехническая лаборатория</div>
+      <div class="brandleft"><button class="menubtn" id="menubtn" aria-label="Меню">☰</button><div class="brand">Meow Meow Lab</div></div>
       <button class="syncbtn" id="syncbtn">☁ не подключено</button>
     </div>
     <div class="tabs" role="tablist">
@@ -185,8 +219,8 @@ const rel = s => { const t = today(); if (s === t) return "Сегодня"; if (
 const plural = (n, a, b, c) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? b : c; };
 const works = n => `${n} ${plural(n, "работа", "работы", "работ")}`;
 
-// Нагрузка дня по несданным работам: 1 — зелёный, 2–3 — жёлтый, 4 и больше — красный
-const level = n => n <= 0 ? 0 : n === 1 ? 1 : n <= 3 ? 2 : 3;
+// Нагрузка дня по несданным работам: 1 — зелёный, 2–4 — жёлтый, 5 и больше — красный
+const level = n => n <= 0 ? 0 : n === 1 ? 1 : n <= 4 ? 2 : 3;
 const dueOn = d => live().filter(o => o.due === d);
 const openOn = d => dueOn(d).filter(o => !o.done);
 const chip = n => `<span class="chip l${level(n)}">${n ? works(n) : "свободно"}</span>`;
@@ -250,7 +284,7 @@ function renderCal() {
       <button class="iconbtn" data-month="1" aria-label="Следующий месяц">›</button>
     </section>
     <section class="grid">${["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map(w => `<div class="wd">${w}</div>`).join("")}${cells}</section>
-    <section class="legend"><span class="chip l1">1 работа</span><span class="chip l2">2–3 работы</span><span class="chip l3">4 и больше</span><span class="chip l0">✓ всё сдано</span></section>
+    <section class="legend"><span class="chip l1">1 работа</span><span class="chip l2">2–4 работы</span><span class="chip l3">5 и больше</span><span class="chip l0">✓ всё сдано</span></section>
     <div class="sub">Число в клетке — сколько работ ещё не сдано. Нажмите на день, чтобы открыть его.</div>`;
 }
 
@@ -270,6 +304,7 @@ document.addEventListener("click", e => {
   else if (b.id === "tab-cal") { const p = parse(S.sel); S.calY = p.getFullYear(); S.calM = p.getMonth(); S.view = "cal"; render(); }
   else if (b.id === "fab") openForm(null);
   else if (b.id === "syncbtn") openSync();
+  else if (b.id === "menubtn") openMenu("main");
   else if (b.dataset.goto) go(b.dataset.goto);
   else if (b.dataset.shift) go(addDays(S.sel, +b.dataset.shift));
   else if (b.dataset.month) { const d = new Date(S.calY, S.calM + +b.dataset.month, 1); S.calY = d.getFullYear(); S.calM = d.getMonth(); render(); }
@@ -448,6 +483,68 @@ function openSync() {
   }
 }
 
+/* ---------- оформление (хранится на каждом устройстве своё) ---------- */
+const LS_PREFS = "lab-prefs";
+const ACCENTS = {
+  teal:     { name: "Бирюзовый",  light: "#1f7a78", dark: "#5cc4c0" },
+  blue:     { name: "Синий",      light: "#2f5fb3", dark: "#7fa6ff" },
+  violet:   { name: "Фиолетовый", light: "#6b4bb8", dark: "#ab94ff" },
+  cherry:   { name: "Вишнёвый",   light: "#a3324f", dark: "#ff8aa5" },
+  graphite: { name: "Графит",     light: "#3d4a4d", dark: "#b4c3c5" },
+};
+const THEMES = [["system", "Как в системе"], ["light", "Светлая"], ["dark", "Тёмная"]];
+let prefs = { theme: "system", accent: "teal", ...lsGet(LS_PREFS, {}) };
+const darkMq = matchMedia("(prefers-color-scheme: dark)");
+const isDark = () => prefs.theme === "dark" || (prefs.theme === "system" && darkMq.matches);
+
+function applyPrefs() {
+  const r = document.documentElement;
+  if (prefs.theme === "system") r.removeAttribute("data-theme"); else r.setAttribute("data-theme", prefs.theme);
+  const a = ACCENTS[prefs.accent] || ACCENTS.teal;
+  r.style.setProperty("--accent", isDark() ? a.dark : a.light);
+  document.querySelector('meta[name="theme-color"]').content = getComputedStyle(r).getPropertyValue("--bg").trim();
+}
+darkMq.addEventListener("change", applyPrefs);
+
+/* ---------- боковое меню: главный список и разделы ---------- */
+// Новый раздел = строка в MENU + функция-страница в MENU_PAGES
+const MENU = [
+  ["appearance", "Оформление", () => (THEMES.find(t => t[0] === prefs.theme) || THEMES[0])[1]],
+  ["sync", "Синхронизация", () => cloudConnected() ? "включена" : "выключена"],
+];
+const MENU_PAGES = {
+  appearance: () => `
+    <div class="dsec"><h2>Тема</h2><div class="seg">${THEMES.map(([k, n]) => `<button data-set-theme="${k}" aria-pressed="${prefs.theme === k}">${n}</button>`).join("")}</div></div>
+    <div class="dsec"><h2>Цвет</h2><div class="swatches">${Object.entries(ACCENTS).map(([k, a]) =>
+      `<button class="sw" style="--c:${isDark() ? a.dark : a.light}" data-set-accent="${k}" aria-pressed="${prefs.accent === k}" aria-label="${a.name}" title="${a.name}"></button>`).join("")}</div>
+      <div class="sub">Кнопки, вкладки и выделение. Зелёный, жёлтый и красный нагрузки не меняются.</div></div>`,
+};
+
+function openMenu(page) {
+  const m = document.getElementById("modal");
+  const first = !m.querySelector(".drawer");
+  const title = page === "main" ? "Меню" : MENU.find(x => x[0] === page)[1];
+  const body = page === "main"
+    ? `<div class="mitems">${MENU.map(([k, n, hint]) => `<button class="mitem" data-page="${k}"><span>${n}</span><span class="hint">${hint()} ›</span></button>`).join("")}</div>`
+    : MENU_PAGES[page]();
+  m.innerHTML = `<div class="drawer-ov" data-close="1"></div><nav class="drawer${first ? " enter" : ""}" aria-label="Меню">
+    ${page === "main" ? "" : `<button class="dback" data-page="main">‹ Меню</button>`}
+    <div class="dhead"><h2 class="dtitle">${title}</h2><button class="dclose" data-close="1" aria-label="Закрыть">×</button></div>
+    ${body}</nav>`;
+  m.onclick = e => {
+    const b = e.target.closest("[data-close], [data-page], [data-set-theme], [data-set-accent]");
+    if (!b) return;
+    if (b.dataset.close) { m.onclick = null; m.innerHTML = ""; render(); }
+    else if (b.dataset.page === "sync") { m.onclick = null; m.innerHTML = ""; openSync(); }
+    else if (b.dataset.page) openMenu(b.dataset.page);
+    else {
+      if (b.dataset.setTheme) prefs.theme = b.dataset.setTheme;
+      if (b.dataset.setAccent) prefs.accent = b.dataset.setAccent;
+      lsSet(LS_PREFS, prefs); applyPrefs(); openMenu(page);
+    }
+  };
+}
+
 /* ---------- обновление самого приложения ---------- */
 // Сравниваем ETag страницы на GitHub Pages: изменился — значит, выложена новая версия, перезагружаемся
 let pageTag = null;
@@ -464,6 +561,7 @@ async function checkAppUpdate() {
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 
 /* ---------- запуск ---------- */
+applyPrefs();
 S.sel = today(); { const p = new Date(); S.calY = p.getFullYear(); S.calM = p.getMonth(); }
 setSyncStatus(cloudConnected() ? "☁ …" : "☁ не подключено");
 render();
