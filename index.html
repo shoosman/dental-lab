@@ -198,6 +198,13 @@ h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: u
 .stageopt .meta { display: block; }
 .heard { background: var(--bg); border-radius: 10px; padding: 8px 12px; font-size: 14px; color: var(--muted); }
 .heard b { color: var(--fg); font-weight: 500; }
+.vhead { display: flex; align-items: center; gap: 8px; }
+.vhead h2 { margin: 0; }
+.infobtn { width: 20px; height: 20px; padding: 0; border-radius: 50%; border: 1.5px solid var(--muted); background: none; color: var(--muted); font: 700 12px/1 var(--font-body); display: grid; place-items: center; }
+.infobtn[aria-expanded="true"] { border-color: var(--accent-ink); color: var(--accent-ink); }
+.vhelp { font-size: 13px; background: var(--bg); border-radius: 10px; padding: 10px 12px; }
+.vhelp ul { margin: 0; padding-left: 18px; display: grid; gap: 5px; }
+.vhelp b { font-weight: 600; }
 .msg.err { color: var(--bad); }
 .msg.ok { color: var(--ok); }
 @media (prefers-reduced-motion: no-preference) { .order, .cell, .tabs button { transition: background .15s, opacity .15s; } }
@@ -282,7 +289,12 @@ const VOICE_TYPES = [[/коронк/, "Коронка"], [/\sмост/, "Мос�
   [/съемн/, "Съёмный протез"], [/капп/, "Каппа"], [/ремонт|почин/, "Ремонт протеза"]];
 const VOICE_MATERIALS = [[/циркон|диоксид/, "цирконий"], [/e\.?\s?-?max|[еэи]\s?-?макс/, "E.max"], [/металл?о-?\s?керам|\sмк\s/, "металлокерамика"]];
 // Служебные слова: короткие — только целиком (иначе «к» съест «Кузнецова»), длинные — по началу
-const VOICE_STOP = /^(врач|доктор|от|для|к|на|в|во|до|через|и|а|сдать|срок|сегодня|завтра|послезавтра|этап)$|^(клиник|стоматолог|цвет|пациент|штук|единиц|коронк|мост|сдач)/;
+const VOICE_STOP = /^(врач|доктор|от|для|к|на|в|во|до|через|и|а|сдать|срок|сегодня|завтра|послезавтра|этап|мастер|техник)$|^(клиник|стоматолог|цвет|пациент|штук|единиц|коронк|мост|сдач|систем|делает|сделает|исполнител|отда)/;
+// Системы (импланты и т.п.) — уходят в комментарий
+const VOICE_SYSTEMS = [[/штрауман|straumann/, "Straumann"], [/нобел|nobel/, "Nobel"], [/о?с+тем|osstem/, "Osstem"], [/\sмис\s|\smis\s/, "MIS"],
+  [/альфа\s?-?био|alpha\s?-?bio/, "Alpha-Bio"], [/дентиум|dentium/, "Dentium"], [/астра|astra/, "Astra Tech"], [/мегаген|megagen/, "MegaGen"],
+  [/имплантиум|implantium/, "Implantium"], [/анкилос|ankylos/, "Ankylos"], [/неодент|neodent/, "Neodent"], [/\sбего\s|bego/, "BEGO"],
+  [/хайоссен|hiossen/, "Hiossen"], [/\sдио\s|\sdio\s/, "DIO"], [/биохорайзон|biohorizons/, "BioHorizons"], [/импро|impro/, "Impro"]];
 
 function voiceNormalize(text) {
   // числа словами → цифрами; «двадцать пятого» → «25-го»
@@ -290,7 +302,7 @@ function voiceNormalize(text) {
   const out = [];
   for (let i = 0; i < words.length; i++) {
     const w = words[i], next = words[i + 1] || "";
-    const ord = t => { const m = /^(.*?)(ого|ое|ой|ому|ым|ая|ый|ий)$/.exec(t); if (!m) return 0; const hit = VOICE_ORD.find(([st]) => m[1] === st || m[1] === st.replace(/ь$/, "")); return hit ? hit[1] : 0; };
+    const ord = t => { const m = /^(.*?)(ьего|ьему|его|ему|ого|ому|ье|ья|ое|ой|ым|им|ая|ый|ий)$/.exec(t); if (!m) return 0; const hit = VOICE_ORD.find(([st]) => m[1] === st || m[1] === st.replace(/ь$/, "")); return hit ? hit[1] : 0; };
     if ((w === "двадцать" || w === "тридцать") && (VOICE_NUM[next] < 10 || ord(next) && ord(next) < 10)) {
       if (ord(next)) { out.push(VOICE_NUM[w] + ord(next) + "-го"); i++; continue; }
       out.push(String(VOICE_NUM[w] + VOICE_NUM[next])); i++; continue;
@@ -309,11 +321,12 @@ function voiceDate(s, todayIso) {
     const y = m[3] ? (m[3].length === 2 ? 2000 + +m[3] : +m[3]) : base.getFullYear();
     return { due: mk(y, +m[2] - 1, +m[1]), hit: m[0] };
   }
-  if ((m = new RegExp(`\\s(\\d{1,2})(?:-?го|-?е)?\\s+(${VOICE_MONTHS.join("|")})[а-я]*`).exec(s))) {
+  // «25 октября» — текущий год; «25 октября 2027 (года)», «… две тысячи двадцать седьмого года», «… 27-го года» — названный
+  if ((m = new RegExp(`\\s(\\d{1,2})(?:-?го|-?е)?\\s+(${VOICE_MONTHS.join("|")})[а-я]*`
+      + `(?:\\s+(\\d{4})(?:\\s+год[а-я]*)?|\\s+2\\s+тысяч[а-я]*\\s+(\\d{1,2})(?:-?го|-?й)?(?:\\s+год[а-я]*)?|\\s+(\\d{2})(?:-?го|-?й)?\\s+год[а-я]*)?`).exec(s))) {
     const mon = VOICE_MONTHS.indexOf(m[2]);
-    let d = mk(base.getFullYear(), mon, +m[1]);
-    if (d < addDays(todayIso, -14)) d = mk(base.getFullYear() + 1, mon, +m[1]);   // давно прошедшая дата — значит, следующий год
-    return { due: d, hit: m[0] };
+    const y = m[3] ? +m[3] : m[4] ? 2000 + +m[4] : m[5] ? 2000 + +m[5] : base.getFullYear();
+    return { due: mk(y, mon, +m[1]), hit: m[0] };
   }
   if ((m = /\s(?:к\s+|на\s+|до\s+)?(\d{1,2})(?:-?го|-?е|-?му)?\s+числ[а-я]*/.exec(s))) {
     let d = mk(base.getFullYear(), base.getMonth(), +m[1]);
@@ -375,7 +388,7 @@ function voiceNameAfter(raw, re) {
 }
 
 // Фамилия без ключевого слова: с заглавной буквы или с типичным окончанием, и не из рабочего словаря
-const VOICE_VOCAB = /^(коронк|мост|винир|вкладк|культев|бюгел|съемн|капп|ремонт|почин|циркон|диоксид|[еэи]-?макс|e\.?-?max|металл|мк$|времен|пластмасс|штук|шт$|единиц|ед$|зуб|цвет|этап|заказ|нов|к$|на$|в$|во$|до$|через|сдать|сдач|сдан|готов|завтра|послезавтра|сегодня|понедельник|вторник|сред|четверг|пятниц|суббот|воскресень|январ|феврал|март|апрел|ма[йя]$|июн|июл|август|сентябр|октябр|ноябр|декабр|числ|недел|дн[яей]|день|скан|отлив|отлит|модел|фрез|обработ|сыр|запек|запеч|спек|синтер|печ|глазур|покрас|окрас|вклеи|вклей|склеи|клеи|переве|пациент|врач|доктор|клиник|стоматолог|от$|для$|и$|а$|из$|с$|по$|одн|один|два|две|три|четыр|пять|шест|сем|восем|девят|десят|двадцат|тридцат|перв|втор|трет|следующ|эт[аоу]|тот|та$|ту$)/;
+const VOICE_VOCAB = /^(коронк|мост|винир|вкладк|культев|бюгел|съемн|капп|ремонт|почин|циркон|диоксид|[еэи]-?макс|e\.?-?max|металл|мк$|времен|пластмасс|штук|шт$|единиц|ед$|зуб|цвет|этап|заказ|нов|к$|на$|в$|во$|до$|через|сдать|сдач|сдан|готов|завтра|послезавтра|сегодня|понедельник|вторник|сред|четверг|пятниц|суббот|воскресень|январ|феврал|март|апрел|ма[йя]$|июн|июл|август|сентябр|октябр|ноябр|декабр|числ|недел|дн[яей]|день|скан|отлив|отлит|модел|фрез|обработ|сыр|запек|запеч|спек|синтер|печ|глазур|покрас|окрас|вклеи|вклей|склеи|клеи|переве|пациент|врач|доктор|клиник|стоматолог|систем|делает|сделает|исполнител|мастер|техник|отда|от$|для$|и$|а$|из$|с$|по$|одн|один|два|две|три|четыр|пять|шест|сем|восем|девят|десят|двадцат|тридцат|перв|втор|трет|следующ|эт[аоу]|тот|та$|ту$)/;
 const VOICE_SURNAME = /(ов|ова|ев|ева|ин|ина|ын|ына|ский|ская|цкий|цкая|ук|юк|енко|ян|дзе|швили|их|ых)$/;
 function voiceGuessName(raw, exclude) {
   const words = raw.replace(/[,.;!?«»"]/g, " , ").split(/\s+/).filter(Boolean);
@@ -390,21 +403,28 @@ function voiceGuessName(raw, exclude) {
   return out.join(" ");
 }
 
-function voiceDoctor(raw, s, knownDoctors, exclude = []) {
-  // 1) уже встречавшийся врач/клиника: сравниваем по основе слова, чтобы «Петрову» нашло «Петров»
+const lowWords = t => t.toLowerCase().replace(/ё/g, "е").split(/\s+/).filter(Boolean);
+const stemIn = (s, w) => new RegExp(`\\s${w.slice(0, Math.max(4, w.length - 2))}`).test(s);
+
+// Врач/клиника: 1) по словам «врач», «доктор», «от», «клиника»; 2) уже встречавшиеся в заказах (без слов пациента)
+function voiceDoctor(raw, s, knownDoctors, patientWords) {
+  const doc = voiceNameAfter(raw, /(?:^|\s)(?:врач[а-я]*|доктор[а-я]*|от)\s+/i);
+  const clinic = voiceNameAfter(raw, /(?:^|\s)(?:клиник[а-я]*|стоматологи[а-я]*)\s+/i);
+  const said = [doc, clinic].filter(Boolean).join(" ");
   let best = "", score = 0, pos = Infinity;
   for (const d of knownDoctors) {
-    const parts = d.toLowerCase().replace(/ё/g, "е").split(/[^а-яa-z]+/).filter(w => w.length >= 4);
+    const parts = lowWords(d.replace(/[^а-яёa-z\s]/gi, " ")).filter(w => w.length >= 4 && !patientWords.some(p => p.slice(0, 4) === w.slice(0, 4)));
     const idx = parts.map(p => s.search(new RegExp(`\\s${p.slice(0, Math.max(4, p.length - 2))}`))).filter(i => i >= 0);
     if (idx.length > score || (idx.length && idx.length === score && Math.min(...idx) < pos)) { best = d; score = idx.length; pos = Math.min(...idx); }
   }
-  if (best) return best;
-  // 2) по ключевым словам
-  const doc = voiceNameAfter(raw, /(?:^|\s)(?:врач[а-я]*|доктор[а-я]*|от|для)\s+/i);
-  const clinic = voiceNameAfter(raw, /(?:^|\s)(?:клиник[а-я]*|стоматологи[а-я]*)\s+/i);
-  if (doc || clinic) return doc && clinic ? `${doc} (${clinic})` : doc || clinic;
-  // 3) просто фамилия в потоке: «коронка, Петров, к пятнице»
-  return voiceGuessName(raw, exclude);
+  if (said) return doc && clinic ? `${doc} (${clinic})` : doc || clinic;
+  return best;   // клиника названа без слова «клиника», но уже встречалась в заказах
+}
+
+function voiceSystem(raw, s) {
+  const named = voiceNameAfter(raw, /(?:^|\s)систем[а-я]*\s+/i);
+  if (named) { const known = VOICE_SYSTEMS.find(([re]) => re.test(" " + named.toLowerCase() + " ")); return known ? known[1] : named; }
+  return (VOICE_SYSTEMS.find(([re]) => re.test(s)) || [])[1] || "";
 }
 
 function parseOrderSpeech(raw, todayIso, knownDoctors = [], knownWorks = []) {
@@ -413,14 +433,22 @@ function parseOrderSpeech(raw, todayIso, knownDoctors = [], knownWorks = []) {
   const rest = date.hit ? s.replace(date.hit, " ") : s;   // число из даты не должно стать количеством
   const shade = voiceShade(rest);
   const rest2 = shade.hit ? rest.replace(shade.hit, " ") : rest;
-  const patient = voiceNameAfter(raw, /(?:^|\s)пациент[а-я]*\s+/i);
+  // Сначала всё, что помечено словами (врач, клиника, система, исполнитель), — потом фамилия пациента из остатка
+  const doc = voiceNameAfter(raw, /(?:^|\s)(?:врач[а-я]*|доктор[а-я]*|от)\s+/i);
+  const clinic = voiceNameAfter(raw, /(?:^|\s)(?:клиник[а-я]*|стоматологи[а-я]*)\s+/i);
+  const executor = voiceNameAfter(raw, /(?:^|\s)(?:делает|сделает|делать\s+будет|исполнител[а-я]*|мастер|техник|отда[а-я]*)\s+/i);
+  const system = voiceSystem(raw, rest2);
+  const systemWords = system ? lowWords(voiceNameAfter(raw, /(?:^|\s)систем[а-я]*\s+/i) || "") : [];
+  const brandWords = lowWords(raw).filter(w => VOICE_SYSTEMS.some(([re]) => re.test(" " + w + " ")));
+  const exclude = [...lowWords(doc), ...lowWords(clinic), ...lowWords(executor), ...systemWords, ...brandWords];
+  const patient = voiceNameAfter(raw, /(?:^|\s)пациент[а-я]*\s+/i) || voiceGuessName(raw, exclude);
   return {
     work: voiceWork(rest2, knownWorks),
     units: voiceUnits(rest2),
     due: date.due,
-    doctor: voiceDoctor(raw, rest2, knownDoctors, patient.toLowerCase().replace(/ё/g, "е").split(" ").filter(Boolean)),
+    doctor: voiceDoctor(raw, rest2, knownDoctors, lowWords(patient)),
     patient,
-    note: shade.shade ? `цвет ${shade.shade}` : "",
+    note: [shade.shade && `цвет ${shade.shade}`, system && `система ${system}`, executor && `делает ${executor}`].filter(Boolean).join(", "),
   };
 }
 
@@ -664,10 +692,20 @@ function stopRec() { const r = rec; rec = null; try { r && r.abort(); } catch (e
 function openVoice() {
   const m = document.getElementById("modal"); resetModal(m);
   m.innerHTML = `<div class="overlay" id="ov"><div class="sheet">
-    <h2>Голосовой ввод</h2>
+    <div class="vhead"><h2>Голосовой ввод</h2><button class="infobtn" id="v-info" aria-expanded="false" aria-controls="v-help" aria-label="Как фраза раскладывается по полям" title="Как фраза раскладывается по полям">i</button></div>
+    <div class="vhelp" id="v-help" hidden><ul>
+      <li><b>Дата:</b> «сегодня», «завтра», «в пятницу», «через неделю», «к 30 числу». «25 октября» — этот год, «25 октября 2027» — названный.</li>
+      <li><b>Работа:</b> коронка, мост, винир, вкладка, бюгельный, съёмный, каппа, ремонт + материал: цирконий, E.max, металлокерамика, временная.</li>
+      <li><b>Количество:</b> «две коронки», «мост на 3 единицы», «2 штуки».</li>
+      <li><b>Пациент:</b> фамилия без пояснения («…Смирнова…») или «пациент Смирнова».</li>
+      <li><b>Клиника и врач:</b> только со словом: «клиника Улыбка», «врач Петров».</li>
+      <li><b>В комментарий:</b> «цвет А2», «система Осстем» или просто название системы (Straumann, Nobel, Osstem, MIS…), «делает Саша» (или «исполнитель», «мастер»).</li>
+      <li><b>Этап:</b> «Смирнова коронка, этап фрезер» — предложит перевести уже существующий заказ.</li>
+      <li>Перед сохранением всегда открывается форма — там можно поправить любое поле.</li>
+    </ul></div>
     <div class="sub" id="v-status">${SpeechRec ? "Слушаю…" : "Нажмите микрофон на клавиатуре и продиктуйте — или напишите."}</div>
     <div class="field"><label for="v-text">Фраза</label><textarea id="v-text" rows="3" placeholder="коронка цирконий 2 штуки, Петров, к пятнице, цвет А2"></textarea></div>
-    <div class="sub">Новый заказ: «коронка цирконий, Петров, к пятнице». Перевести этап: «Петров коронка, этап фрезер».</div>
+    <div class="sub">Новый заказ: «коронка цирконий, Смирнова, клиника Улыбка, 25 октября, цвет А2, система Осстем, делает Саша». Перевести этап: «Смирнова коронка, этап фрезер».</div>
     <div class="actions"><button class="primary" id="v-go">Разобрать</button>${SpeechRec ? `<button class="ghost" id="v-again">Слушать ещё раз</button>` : ""}<button class="ghost" id="v-cancel">Отмена</button></div>
   </div></div>`;
   const ta = document.getElementById("v-text");
@@ -676,6 +714,7 @@ function openVoice() {
   document.getElementById("ov").addEventListener("click", e => {
     if (e.target.id === "ov" || e.target.id === "v-cancel") return close();
     if (e.target.id === "v-again") return listen();
+    if (e.target.id === "v-info") { const h = document.getElementById("v-help"); h.hidden = !h.hidden; e.target.setAttribute("aria-expanded", !h.hidden); return; }
     if (e.target.id === "v-go") { const text = ta.value.trim(); if (!text) return status("Скажите или напишите фразу."); stopRec(); handleVoice(text); }
   });
   function listen() {
