@@ -28,6 +28,8 @@ try { const p = JSON.parse(localStorage.getItem("lab-prefs") || "{}"); if (p.the
   --muted: #5d7275;
   --accent: #1f7a78;
   --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  --accent-ink: var(--accent);      /* акцент как цвет текста; у пастельных — темнее */
+  --on-accent: var(--surface);      /* текст поверх акцентной заливки; у пастельных — тёмный */
   --ok: #2e8b57; --ok-bg: #dff3e6;
   --warn: #b27a00; --warn-bg: #fdf0c8;
   --bad: #c0392b; --bad-bg: #fbe0dc;
@@ -62,7 +64,7 @@ button { cursor: pointer; }
 .top-in, .wrap { max-width: 640px; margin: 0 auto; }
 .brandrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .brandleft { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.brand { font: 600 13px/1 var(--font-display); letter-spacing: .04em; color: var(--accent); text-transform: uppercase; }
+.brand { font: 600 13px/1 var(--font-display); letter-spacing: .04em; color: var(--accent-ink); text-transform: uppercase; }
 .menubtn { border: 0; background: none; color: var(--fg); font-size: 22px; line-height: 1; padding: 2px 4px 2px 0; }
 
 /* боковое меню */
@@ -82,7 +84,7 @@ button { cursor: pointer; }
 .dsec { display: grid; gap: 8px; }
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
 .seg button { min-width: 0; border: 0; background: none; padding: 9px 4px; border-radius: 9px; font-weight: 600; font-size: 14px; color: var(--muted); }
-.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 .swatches { display: flex; flex-wrap: wrap; gap: 12px; }
 .sw { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--c); }
 .sw[aria-pressed="true"] { outline: 3px solid var(--fg); outline-offset: 3px; }
@@ -97,13 +99,18 @@ button { cursor: pointer; }
 .wconfirm button { border-radius: 10px; padding: 8px 14px; font-weight: 600; font-size: 14px; }
 .wremove { border: 0; background: var(--bad); color: var(--surface); }
 .wcancel { border: 1px solid var(--line); background: var(--surface); }
+.wedit-btn { border: 0; background: var(--accent); color: var(--on-accent); }
+.wish.editing { grid-template-columns: 1fr; background: var(--bg); padding-inline: 8px; }
+.wedit { display: grid; gap: 8px; }
+.wedit input, .wedit textarea { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 10px; width: 100%; min-width: 0; }
+.wedit .wconfirm { display: flex; }
 .drawer .linkbtn { justify-self: start; }
 .syncbtn { border: 0; background: none; color: var(--muted); font-size: 13px; padding: 4px 0; white-space: nowrap; }
 .syncbtn.ok { color: var(--ok); }
 .syncbtn.err { color: var(--bad); }
 .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
 .tabs button { border: 0; background: none; padding: 10px; border-radius: 9px; font-weight: 600; color: var(--muted); }
-.tabs button[aria-selected="true"] { background: var(--accent); color: var(--surface); }
+.tabs button[aria-selected="true"] { background: var(--accent); color: var(--on-accent); }
 
 .wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-top: 16px; padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 20px; }
 h1 { font: 600 clamp(22px, 6vw, 28px)/1.15 var(--font-display); margin: 0; text-wrap: balance; }
@@ -112,7 +119,7 @@ h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: u
 .dayhead .grow { flex: 1; min-width: 0; }
 .sub { color: var(--muted); font-size: 14px; }
 .iconbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; width: 40px; height: 40px; font-size: 20px; line-height: 1; }
-.linkbtn { border: 0; background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 9px 12px; font-weight: 600; font-size: 14px; }
+.linkbtn { border: 0; background: var(--accent-soft); color: var(--accent-ink); border-radius: 10px; padding: 9px 12px; font-weight: 600; font-size: 14px; }
 
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .l0 { background: var(--calm-bg); color: var(--calm); }
@@ -143,7 +150,9 @@ h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: u
 .uday .row { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
 .uday ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
 
-.fab { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); border: 0; background: var(--accent); color: var(--surface); font-weight: 700; padding: 14px 20px; border-radius: 999px; box-shadow: 0 6px 20px rgb(0 0 0 / .18); z-index: 6; }
+.fabs { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 6; display: flex; align-items: center; gap: 10px; }
+.fab { border: 0; background: var(--accent); color: var(--on-accent); font-weight: 700; padding: 14px 20px; border-radius: 999px; box-shadow: 0 6px 20px rgb(0 0 0 / .18); }
+.micfab { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--accent-ink); display: grid; place-items: center; box-shadow: 0 4px 14px rgb(0 0 0 / .12); }
 
 .calhead { display: flex; align-items: center; gap: 8px; }
 .calhead h1 { flex: 1; text-align: center; font-size: 20px; }
@@ -153,7 +162,7 @@ h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: u
 .cell .n { font-size: 14px; font-variant-numeric: tabular-nums; }
 .cell .c { align-self: flex-end; font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
 .cell.out { visibility: hidden; }
-.cell.today { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cell.today { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
 .cell.past { opacity: .6; }
 .cell.l1 { background: var(--ok-bg); border-color: transparent; }
 .cell.l2 { background: var(--warn-bg); border-color: transparent; }
@@ -170,15 +179,25 @@ h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: u
 .sheet code { font-size: 13px; background: var(--bg); padding: 1px 4px; border-radius: 4px; }
 .field { display: grid; gap: 4px; }
 .field label { font-size: 13px; font-weight: 600; color: var(--muted); }
-.field input, .field textarea { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; width: 100%; min-width: 0; }
+.field input, .field textarea, .field select { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; width: 100%; min-width: 0; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .donebox { display: flex; gap: 10px; align-items: center; font-weight: 600; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.actions .primary { flex: 1; border: 0; background: var(--accent); color: var(--surface); padding: 12px; border-radius: 12px; font-weight: 700; }
+.actions .primary { flex: 1; border: 0; background: var(--accent); color: var(--on-accent); padding: 12px; border-radius: 12px; font-weight: 700; }
 .actions .ghost { border: 1px solid var(--line); background: none; padding: 12px 14px; border-radius: 12px; }
 .actions .danger { border: 1px solid var(--bad); color: var(--bad); background: none; padding: 12px 14px; border-radius: 12px; }
 .actions .danger.armed { background: var(--bad); color: var(--surface); }
 .msg { font-size: 14px; }
+.stagepill { margin-top: 6px; border: 0; background: var(--accent-soft); color: var(--accent-ink); border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stagepill.empty { background: none; border: 1px dashed var(--line); color: var(--muted); font-weight: 500; }
+.stagelist { display: grid; gap: 6px; }
+.stageopt { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 12px; }
+.stageopt[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.stageopt .num { width: 22px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
+.stageopt[aria-pressed="true"] .num { color: inherit; }
+.stageopt .meta { display: block; }
+.heard { background: var(--bg); border-radius: 10px; padding: 8px 12px; font-size: 14px; color: var(--muted); }
+.heard b { color: var(--fg); font-weight: 500; }
 .msg.err { color: var(--bad); }
 .msg.ok { color: var(--ok); }
 @media (prefers-reduced-motion: no-preference) { .order, .cell, .tabs button { transition: background .15s, opacity .15s; } }
@@ -198,7 +217,10 @@ h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: u
   </div>
 </header>
 <main class="wrap" id="app"></main>
-<button class="fab" id="fab">+ Заказ</button>
+<div class="fabs">
+  <button class="micfab" id="micbtn" aria-label="Голосовой ввод" title="Голосовой ввод"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg></button>
+  <button class="fab" id="fab">+ Заказ</button>
+</div>
 <div id="modal"></div>
 
 <script>
@@ -214,7 +236,9 @@ const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v ? JS
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 let store = lsGet(LS_DATA, { orders: {} });
 store.wishes = store.wishes || {};   // доработки: отметки и свои просьбы
-const saveLocal = () => lsSet(LS_DATA, store);
+// Перед записью сливаем с тем, что лежит в localStorage: вторая вкладка могла записать свои правки
+const saveLocal = () => { const cur = lsGet(LS_DATA, null); if (cur) store = merge(store, { orders: cur.orders || {}, wishes: cur.wishes || {} }); lsSet(LS_DATA, store); };
+let editSeq = 0;   // счётчик правок: dirty снимаем, только если за время отправки новых не было
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 
 const S = { view: "day", sel: null, calY: 0, calM: 0 };
@@ -241,6 +265,221 @@ const openOn = d => dueOn(d).filter(o => !o.done);
 const chip = n => `<span class="chip l${level(n)}">${n ? works(n) : "свободно"}</span>`;
 const byWork = (a, b) => (a.done - b.done) || (a.doctor || "").localeCompare(b.doctor || "");
 
+/* ---------- разбор голосовой фразы в заказ ---------- */
+// «коронка цирконий две штуки, Петров, клиника Улыбка, к пятнице, цвет А2» → поля формы.
+// Чего не нашли — оставляем пустым: форму человек всё равно проверяет перед сохранением.
+const VOICE_NUM = { "один": 1, "одна": 1, "одну": 1, "одного": 1, "одной": 1, "два": 2, "две": 2, "двух": 2, "три": 3, "трех": 3, "четыре": 4, "четырех": 4,
+  "пять": 5, "пяти": 5, "шесть": 6, "шести": 6, "семь": 7, "семи": 7, "восемь": 8, "восьми": 8, "девять": 9, "девяти": 9, "десять": 10, "десяти": 10,
+  "одиннадцать": 11, "двенадцать": 12, "тринадцать": 13, "четырнадцать": 14, "пятнадцать": 15, "шестнадцать": 16, "семнадцать": 17,
+  "восемнадцать": 18, "девятнадцать": 19, "двадцать": 20, "тридцать": 30 };
+// Порядковые для дат: «двадцать пятого октября»
+const VOICE_ORD = [["одиннадцат", 11], ["двенадцат", 12], ["тринадцат", 13], ["четырнадцат", 14], ["пятнадцат", 15], ["шестнадцат", 16],
+  ["семнадцат", 17], ["восемнадцат", 18], ["девятнадцат", 19], ["двадцат", 20], ["тридцат", 30], ["перв", 1], ["втор", 2], ["трет", 3],
+  ["четверт", 4], ["пят", 5], ["шест", 6], ["седьм", 7], ["восьм", 8], ["девят", 9], ["десят", 10]];
+const VOICE_MONTHS = ["январ", "феврал", "март", "апрел", "ма", "июн", "июл", "август", "сентябр", "октябр", "ноябр", "декабр"];
+const VOICE_WD = [["воскресень", 0], ["понедельник", 1], ["вторник", 2], ["сред", 3], ["четверг", 4], ["пятниц", 5], ["суббот", 6]];
+const VOICE_TYPES = [[/коронк/, "Коронка"], [/\sмост/, "Мост"], [/винир/, "Винир"], [/вкладк|культев/, "Вкладка"], [/бюгел/, "Бюгельный протез"],
+  [/съемн/, "Съёмный протез"], [/капп/, "Каппа"], [/ремонт|почин/, "Ремонт протеза"]];
+const VOICE_MATERIALS = [[/циркон|диоксид/, "цирконий"], [/e\.?\s?-?max|[еэи]\s?-?макс/, "E.max"], [/металл?о-?\s?керам|\sмк\s/, "металлокерамика"]];
+// Служебные слова: короткие — только целиком (иначе «к» съест «Кузнецова»), длинные — по началу
+const VOICE_STOP = /^(врач|доктор|от|для|к|на|в|во|до|через|и|а|сдать|срок|сегодня|завтра|послезавтра|этап)$|^(клиник|стоматолог|цвет|пациент|штук|единиц|коронк|мост|сдач)/;
+
+function voiceNormalize(text) {
+  // числа словами → цифрами; «двадцать пятого» → «25-го»
+  const words = text.toLowerCase().replace(/ё/g, "е").replace(/[,;!?]/g, " , ").split(/\s+/).filter(Boolean);
+  const out = [];
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i], next = words[i + 1] || "";
+    const ord = t => { const m = /^(.*?)(ого|ое|ой|ому|ым|ая|ый|ий)$/.exec(t); if (!m) return 0; const hit = VOICE_ORD.find(([st]) => m[1] === st || m[1] === st.replace(/ь$/, "")); return hit ? hit[1] : 0; };
+    if ((w === "двадцать" || w === "тридцать") && (VOICE_NUM[next] < 10 || ord(next) && ord(next) < 10)) {
+      if (ord(next)) { out.push(VOICE_NUM[w] + ord(next) + "-го"); i++; continue; }
+      out.push(String(VOICE_NUM[w] + VOICE_NUM[next])); i++; continue;
+    }
+    if (VOICE_NUM[w] !== undefined) { out.push(String(VOICE_NUM[w])); continue; }
+    if (ord(w)) { out.push(ord(w) + "-го"); continue; }
+    out.push(w);
+  }
+  return " " + out.join(" ") + " ";
+}
+
+function voiceDate(s, todayIso) {
+  const base = parse(todayIso), mk = (y, m, d) => iso(new Date(y, m, d));
+  let m;
+  if ((m = /\s(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\s/.exec(s))) {
+    const y = m[3] ? (m[3].length === 2 ? 2000 + +m[3] : +m[3]) : base.getFullYear();
+    return { due: mk(y, +m[2] - 1, +m[1]), hit: m[0] };
+  }
+  if ((m = new RegExp(`\\s(\\d{1,2})(?:-?го|-?е)?\\s+(${VOICE_MONTHS.join("|")})[а-я]*`).exec(s))) {
+    const mon = VOICE_MONTHS.indexOf(m[2]);
+    let d = mk(base.getFullYear(), mon, +m[1]);
+    if (d < addDays(todayIso, -14)) d = mk(base.getFullYear() + 1, mon, +m[1]);   // давно прошедшая дата — значит, следующий год
+    return { due: d, hit: m[0] };
+  }
+  if ((m = /\s(?:к\s+|на\s+|до\s+)?(\d{1,2})(?:-?го|-?е|-?му)?\s+числ[а-я]*/.exec(s))) {
+    let d = mk(base.getFullYear(), base.getMonth(), +m[1]);
+    if (d < todayIso) d = mk(base.getFullYear(), base.getMonth() + 1, +m[1]);
+    return { due: d, hit: m[0] };
+  }
+  if ((m = /\sпослезавтра/.exec(s))) return { due: addDays(todayIso, 2), hit: m[0] };
+  if ((m = /\sзавтра/.exec(s))) return { due: addDays(todayIso, 1), hit: m[0] };
+  if ((m = /\sсегодня/.exec(s))) return { due: todayIso, hit: m[0] };
+  if ((m = /\sчерез\s+(\d+\s+)?(день|дня|дней|недел[а-я]*)/.exec(s))) {
+    const n = m[1] ? +m[1] : 1, week = m[2].startsWith("недел");
+    return { due: addDays(todayIso, week ? 7 * n : (m[1] ? n : 2)), hit: m[0] };   // «через день» = послезавтра
+  }
+  if ((m = new RegExp(`\\s(?:(?:в|во|к|на|до)\\s+)?(следующ[а-я]*\\s+)?(${VOICE_WD.map(w => w[0]).join("|")})[а-я]*`).exec(s))) {
+    const wd = VOICE_WD.find(w => w[0] === m[2])[1], dow = base.getDay();
+    let add = (wd - dow + 7) % 7 || 7;                       // ближайший такой день после сегодняшнего
+    if (m[1] && add < ((7 - dow) % 7 || 7)) add += 7;        // «в следующую пятницу» — пятница следующей недели
+    return { due: addDays(todayIso, add), hit: m[0] };
+  }
+  return { due: "", hit: "" };
+}
+
+function voiceShade(s) {
+  // Цвет по шкале VITA: «цвет а2», «цвет бэ 1», «A3.5»
+  const L = { "a": "A", "а": "A", "b": "B", "б": "B", "бэ": "B", "в": "B", "c": "C", "с": "C", "ц": "C", "цэ": "C", "d": "D", "д": "D", "дэ": "D" };
+  const m = /цвет[а-я]*\s+(a|b|c|d|а|б|бэ|в|с|ц|цэ|д|дэ)\s*-?\s*(\d(?:[.,]5)?)/.exec(s) || /\s(a|b|c|d)\s?(\d(?:[.,]5)?)\s/.exec(s);
+  return m ? { shade: L[m[1]] + m[2].replace(",", "."), hit: m[0] } : { shade: "", hit: "" };
+}
+
+function voiceWork(s, knownWorks) {
+  const known = knownWorks.filter(w => w && s.includes(" " + w.toLowerCase().replace(/ё/g, "е") + " "));
+  if (known.length) return known.sort((a, b) => b.length - a.length)[0];
+  const type = (VOICE_TYPES.find(([re]) => re.test(s)) || [])[1] || "";
+  const mat = (VOICE_MATERIALS.find(([re]) => re.test(s)) || [])[1] || "";
+  const temp = /временн/.test(s);
+  if (temp && (!type || type === "Коронка")) return "Временная коронка";
+  if (!type && !mat) return "";
+  if (!type || type === "Коронка") return mat ? `Коронка ${mat}` : "Коронка";
+  return [type, temp ? "временный" : "", mat].filter(Boolean).join(" ");
+}
+
+function voiceUnits(s) {
+  const m = /\s(\d{1,2})\s+(?:шт|штук[а-я]*|единиц[а-я]*|ед\.?|зуб[а-я]*|коронк[а-я]*|винир[а-я]*|вкладк[а-я]*|капп[а-я]*)/.exec(s)
+    || /мост[а-я]*\s+на\s+(\d{1,2})/.exec(s) || /\s[x×х]\s?(\d{1,2})\s/.exec(s);
+  return m ? Math.min(32, Math.max(1, +m[1])) : 1;
+}
+
+// Имя после ключевого слова: 1–2 слова, пока не встретится служебное
+function voiceNameAfter(raw, re) {
+  const m = re.exec(raw);
+  if (!m) return "";
+  const words = raw.slice(m.index + m[0].length).replace(/[,.;]/g, " , ").split(/\s+/).filter(Boolean);
+  const out = [];
+  for (const w of words) {
+    if (w === "," || VOICE_STOP.test(w.toLowerCase()) || /\d/.test(w) || out.length === 2) break;
+    out.push(w[0].toUpperCase() + w.slice(1));
+  }
+  return out.join(" ");
+}
+
+// Фамилия без ключевого слова: с заглавной буквы или с типичным окончанием, и не из рабочего словаря
+const VOICE_VOCAB = /^(коронк|мост|винир|вкладк|культев|бюгел|съемн|капп|ремонт|почин|циркон|диоксид|[еэи]-?макс|e\.?-?max|металл|мк$|времен|пластмасс|штук|шт$|единиц|ед$|зуб|цвет|этап|заказ|нов|к$|на$|в$|во$|до$|через|сдать|сдач|сдан|готов|завтра|послезавтра|сегодня|понедельник|вторник|сред|четверг|пятниц|суббот|воскресень|январ|феврал|март|апрел|ма[йя]$|июн|июл|август|сентябр|октябр|ноябр|декабр|числ|недел|дн[яей]|день|скан|отлив|отлит|модел|фрез|обработ|сыр|запек|запеч|спек|синтер|печ|глазур|покрас|окрас|вклеи|вклей|склеи|клеи|переве|пациент|врач|доктор|клиник|стоматолог|от$|для$|и$|а$|из$|с$|по$|одн|один|два|две|три|четыр|пять|шест|сем|восем|девят|десят|двадцат|тридцат|перв|втор|трет|следующ|эт[аоу]|тот|та$|ту$)/;
+const VOICE_SURNAME = /(ов|ова|ев|ева|ин|ина|ын|ына|ский|ская|цкий|цкая|ук|юк|енко|ян|дзе|швили|их|ых)$/;
+function voiceGuessName(raw, exclude) {
+  const words = raw.replace(/[,.;!?«»"]/g, " , ").split(/\s+/).filter(Boolean);
+  const out = [];
+  for (const w of words) {
+    const lw = w.toLowerCase().replace(/ё/g, "е");
+    const ok = w !== "," && !/\d/.test(w) && lw.length >= 3 && !VOICE_VOCAB.test(lw) && !exclude.includes(lw)
+      && (/^[А-ЯЁ]/.test(w) || VOICE_SURNAME.test(lw));
+    if (ok) { out.push(w[0].toUpperCase() + w.slice(1)); if (out.length === 2) break; }
+    else if (out.length) break;
+  }
+  return out.join(" ");
+}
+
+function voiceDoctor(raw, s, knownDoctors, exclude = []) {
+  // 1) уже встречавшийся врач/клиника: сравниваем по основе слова, чтобы «Петрову» нашло «Петров»
+  let best = "", score = 0, pos = Infinity;
+  for (const d of knownDoctors) {
+    const parts = d.toLowerCase().replace(/ё/g, "е").split(/[^а-яa-z]+/).filter(w => w.length >= 4);
+    const idx = parts.map(p => s.search(new RegExp(`\\s${p.slice(0, Math.max(4, p.length - 2))}`))).filter(i => i >= 0);
+    if (idx.length > score || (idx.length && idx.length === score && Math.min(...idx) < pos)) { best = d; score = idx.length; pos = Math.min(...idx); }
+  }
+  if (best) return best;
+  // 2) по ключевым словам
+  const doc = voiceNameAfter(raw, /(?:^|\s)(?:врач[а-я]*|доктор[а-я]*|от|для)\s+/i);
+  const clinic = voiceNameAfter(raw, /(?:^|\s)(?:клиник[а-я]*|стоматологи[а-я]*)\s+/i);
+  if (doc || clinic) return doc && clinic ? `${doc} (${clinic})` : doc || clinic;
+  // 3) просто фамилия в потоке: «коронка, Петров, к пятнице»
+  return voiceGuessName(raw, exclude);
+}
+
+function parseOrderSpeech(raw, todayIso, knownDoctors = [], knownWorks = []) {
+  const s = voiceNormalize(raw);
+  const date = voiceDate(s, todayIso);
+  const rest = date.hit ? s.replace(date.hit, " ") : s;   // число из даты не должно стать количеством
+  const shade = voiceShade(rest);
+  const rest2 = shade.hit ? rest.replace(shade.hit, " ") : rest;
+  const patient = voiceNameAfter(raw, /(?:^|\s)пациент[а-я]*\s+/i);
+  return {
+    work: voiceWork(rest2, knownWorks),
+    units: voiceUnits(rest2),
+    due: date.due,
+    doctor: voiceDoctor(raw, rest2, knownDoctors, patient.toLowerCase().replace(/ё/g, "е").split(" ").filter(Boolean)),
+    patient,
+    note: shade.shade ? `цвет ${shade.shade}` : "",
+  };
+}
+
+/* ---------- этапы работы ---------- */
+const STAGES = [
+  ["scan", "Сканирование модели"], ["cast", "Отливка модели"], ["model", "Моделировка"], ["mill", "Фрезеровка"],
+  ["green", "Обработка сырого циркония"], ["sinter", "Запекание"], ["post", "Обработка после запекания"],
+  ["glaze", "Глазурь и покраска"], ["bond", "Вклеивание"], ["handoff", "Сдача"],
+];
+const stageName = id => (STAGES.find(st => st[0] === id) || [])[1] || "";
+
+// Этап из фразы. «Сдать к пятнице» — это срок, а не этап, поэтому «сдача» только явно: «этап сдача», «сдали», «готова».
+function voiceStage(s) {
+  if (/обработ/.test(s)) {
+    if (/сыр/.test(s)) return "green";
+    if (/запеч|запек|спеч|спек|синтер|после/.test(s)) return "post";
+  }
+  if (/скан/.test(s)) return "scan";
+  if (/отлив|отлит/.test(s)) return "cast";
+  if (/моделир|моделиров/.test(s)) return "model";
+  if (/фрез/.test(s)) return "mill";
+  if (/запек|запеч|синтер|спек|\sпечь|\sпечк/.test(s)) return "sinter";
+  if (/глазур|покрас|окрас/.test(s)) return "glaze";
+  if (/вклеи|вклей|склеи|приклеи|клеим/.test(s)) return "bond";
+  if (/этап\s+сдач|\sсдан[аоы]?\s|\sсдали\s|\sотдали\s|\sготов[аоы]?\s/.test(s)) return "handoff";
+  return "";
+}
+
+// Какие несданные заказы похожи на фразу: пациент весит больше врача, вид работы — меньше всего
+function voiceMatchOrders(raw, orders) {
+  const s = voiceNormalize(raw);
+  const stemHit = text => (text || "").toLowerCase().replace(/ё/g, "е").split(/[^а-яa-z]+/).filter(w => w.length >= 4)
+    .filter(p => new RegExp(`\\s${p.slice(0, Math.max(4, p.length - 2))}`).test(s)).length;
+  const typeOf = w => (VOICE_TYPES.find(([re]) => re.test(" " + w.toLowerCase() + " ")) || [])[1];
+  const matOf = w => (VOICE_MATERIALS.find(([re]) => re.test(" " + w.toLowerCase().replace(/ё/g, "е") + " ")) || [])[1];
+  // «обработка сырого циркония» — название этапа, а не материал заказа
+  const sw = s.replace(/(обработ[а-я]*\s+)?(сыр|запеч|запек|спеч|спек)[а-я]*\s+циркон[а-я]*/g, " ");
+  const sType = (VOICE_TYPES.find(([re]) => re.test(sw)) || [])[1], sMat = (VOICE_MATERIALS.find(([re]) => re.test(sw)) || [])[1];
+  const scored = orders.filter(o => !o.done).map(o => {
+    const who = stemHit(o.patient) * 3 + stemHit(o.doctor) * 2;
+    const what = (sType && typeOf(o.work || "") === sType ? 1 : 0) + (sMat && matOf(o.work || "") === sMat ? 1 : 0);
+    return { o, score: who + what, who };
+  }).filter(x => x.who > 0 || x.score >= 2).sort((a, b) => b.score - a.score || a.o.due.localeCompare(b.o.due));
+  if (!scored.length) return [];
+  const top = scored[0].score;
+  return scored.filter(x => x.score === top).slice(0, 5).map(x => x.o);
+}
+
+// Что хотят: перевести этап существующего заказа или завести новый
+function voiceIntent(raw, todayIso, orders, knownDoctors, knownWorks) {
+  const s = voiceNormalize(raw);
+  const stage = voiceStage(s);
+  const order = parseOrderSpeech(raw, todayIso, knownDoctors, knownWorks);
+  order.stage = stage;
+  const explicit = /\sэтап|перевед|переведи|перевести|передвин|\sна\s+(скан|отлив|моделир|фрез|обработ|запек|спек|синтер|печь|глазур|покрас|вклей|вклеи|сдач)/.test(s);
+  const matches = stage && (explicit || !order.due) ? voiceMatchOrders(raw, orders) : [];
+  return { stage, order, matches };
+}
+
 /* ---------- экраны ---------- */
 function orderCard(o, showDate) {
   const who = [o.patient && `пациент ${esc(o.patient)}`, o.doctor && esc(o.doctor)].filter(Boolean).join(" · ");
@@ -248,6 +487,8 @@ function orderCard(o, showDate) {
     <input type="checkbox" class="check" data-done="${esc(o.id)}" ${o.done ? "checked" : ""} aria-label="Готово">
     <div class="body">
       <div class="work">${esc(o.work || "Работа")}${o.units > 1 ? ` × ${o.units}` : ""}</div>
+      ${o.stage ? `<button class="stagepill" data-stage="${esc(o.id)}">${esc(stageName(o.stage))} · ${STAGES.findIndex(st => st[0] === o.stage) + 1}/${STAGES.length}</button>`
+        : o.done ? "" : `<button class="stagepill empty" data-stage="${esc(o.id)}">+ этап</button>`}
       ${who ? `<div class="meta">${who}</div>` : ""}
       ${showDate ? `<div class="meta">сдать ${human(o.due)}</div>` : ""}
       ${o.note ? `<div class="note">${esc(o.note)}</div>` : ""}
@@ -303,7 +544,13 @@ function renderCal() {
     <div class="sub">Число в клетке — сколько работ ещё не сдано. Нажмите на день, чтобы открыть его.</div>`;
 }
 
-const modalOpen = () => !!document.querySelector("#modal .overlay");
+// Открыто любое окно или меню — тогда не перерисовываем и не перезагружаем страницу под ним
+const modalOpen = () => !!document.getElementById("modal").firstElementChild;
+// Каждое окно начинает с чистого листа: обработчики меню не должны пережить его закрытие
+function resetModal(m) {
+  m.onclick = m.onpointerdown = m.onpointermove = m.onpointerup = m.onpointercancel = null;
+  menuPage = null; lpFired = false; editingWish = null;
+}
 function render() {
   document.getElementById("tab-day").setAttribute("aria-selected", S.view === "day");
   document.getElementById("tab-cal").setAttribute("aria-selected", S.view === "cal");
@@ -320,6 +567,8 @@ document.addEventListener("click", e => {
   else if (b.id === "fab") openForm(null);
   else if (b.id === "syncbtn") openSync();
   else if (b.id === "menubtn") openMenu("main");
+  else if (b.id === "micbtn") openVoice();
+  else if (b.dataset.stage) openStagePicker(b.dataset.stage);
   else if (b.dataset.goto) go(b.dataset.goto);
   else if (b.dataset.shift) go(addDays(S.sel, +b.dataset.shift));
   else if (b.dataset.month) { const d = new Date(S.calY, S.calM + +b.dataset.month, 1); S.calY = d.getFullYear(); S.calM = d.getMonth(); render(); }
@@ -328,22 +577,51 @@ document.addEventListener("click", e => {
 });
 
 /* ---------- изменения ---------- */
+// Этап «Сдача» и галочка «сдано» — одно и то же: держим их согласованными
+function normStage(next, prev) {
+  if (next.deleted) return next;
+  if (next.stage !== prev.stage && next.stage) next.done = next.stage === "handoff";
+  else if (!!next.done !== !!prev.done) next.stage = next.done ? "handoff" : next.stage === "handoff" ? "bond" : next.stage;
+  return next;
+}
 function putOrder(o) {
-  store.orders[o.id] = { ...o, updatedAt: Date.now() };
-  saveLocal(); lsSet(LS_DIRTY, true); render(); scheduleSync();
+  store.orders[o.id] = { ...normStage({ ...o }, store.orders[o.id] || {}), updatedAt: Date.now() };
+  editSeq++; saveLocal(); lsSet(LS_DIRTY, true); render(); scheduleSync();
 }
 
-function openForm(o) {
-  const isNew = !o; o = o || { id: newId(), work: "", units: 1, patient: "", doctor: "", due: S.sel, note: "", done: false, createdAt: Date.now() };
+function openStagePicker(id) {
+  const o = store.orders[id]; if (!o) return;
+  const m = document.getElementById("modal"); resetModal(m);
+  m.innerHTML = `<div class="overlay" id="ov"><div class="sheet">
+    <h2>Этап</h2>
+    <div class="sub">${esc(o.work || "Работа")}${o.doctor ? " — " + esc(o.doctor) : ""}${o.patient ? ", пациент " + esc(o.patient) : ""}</div>
+    <div class="stagelist">${STAGES.map(([k, n], i) => `<button class="stageopt" data-pick="${k}" aria-pressed="${o.stage === k}"><span class="num">${i + 1}</span><span>${n}</span></button>`).join("")}</div>
+    <div class="actions"><button class="ghost" id="st-clear">Без этапа</button><button class="ghost" id="st-cancel">Отмена</button></div>
+  </div></div>`;
+  const close = () => { m.innerHTML = ""; render(); };
+  document.getElementById("ov").addEventListener("click", e => {
+    if (e.target.id === "ov" || e.target.id === "st-cancel") return close();
+    if (e.target.id === "st-clear") { m.innerHTML = ""; return putOrder({ ...store.orders[id], stage: "" }); }
+    const b = e.target.closest("[data-pick]");
+    if (b) { m.innerHTML = ""; putOrder({ ...store.orders[id], stage: b.dataset.pick }); }
+  });
+}
+
+function openForm(o, opts = {}) {
+  const isNew = !o;
+  const prefill = Object.fromEntries(Object.entries(opts.prefill || {}).filter(([, v]) => v !== "" && v != null));
+  if (isNew) o = { id: newId(), work: "", units: 1, patient: "", doctor: "", due: S.sel, note: "", done: false, stage: "", createdAt: Date.now(), ...prefill };
   const doctors = [...new Set(live().map(x => x.doctor).filter(Boolean))];
-  const m = document.getElementById("modal");
+  const m = document.getElementById("modal"); resetModal(m);
   m.innerHTML = `<div class="overlay" id="ov"><form class="sheet" id="f" autocomplete="off">
     <h2>${isNew ? "Новый заказ" : "Заказ"}</h2>
+    ${opts.heard ? `<div class="heard">Распознано: <b>«${esc(opts.heard)}»</b><br>Проверьте поля и сохраните.</div>` : ""}
     <div class="field"><label for="f-work">Что делаем</label><input id="f-work" list="dl-work" required value="${esc(o.work)}" placeholder="Коронка цирконий"></div>
     <div class="two">
       <div class="field"><label for="f-due">Дата сдачи</label><input id="f-due" type="date" required value="${esc(o.due)}"></div>
       <div class="field"><label for="f-units">Единиц</label><input id="f-units" type="number" min="1" max="32" inputmode="numeric" value="${esc(o.units || 1)}"></div>
     </div>
+    <div class="field"><label for="f-stage">Этап</label><select id="f-stage"><option value="">— не указан —</option>${STAGES.map(([k, n]) => `<option value="${k}" ${o.stage === k ? "selected" : ""}>${n}</option>`).join("")}</select></div>
     <div class="field"><label for="f-doctor">Врач / клиника</label><input id="f-doctor" list="dl-doc" value="${esc(o.doctor)}"></div>
     <div class="field"><label for="f-patient">Пациент</label><input id="f-patient" value="${esc(o.patient)}"></div>
     <div class="field"><label for="f-note">Комментарий</label><textarea id="f-note" rows="2" placeholder="цвет A2, примерка каркаса…">${esc(o.note)}</textarea></div>
@@ -369,18 +647,90 @@ function openForm(o) {
     const v = id => document.getElementById(id).value.trim();
     // Сначала читаем поля, потом закрываем форму — после закрытия их уже нет в документе
     const next = { ...o, work: v("f-work"), due: v("f-due"), units: Math.max(1, parseInt(v("f-units")) || 1), doctor: v("f-doctor"),
-      patient: v("f-patient"), note: v("f-note"), done: document.getElementById("f-done").checked };
+      patient: v("f-patient"), note: v("f-note"), stage: v("f-stage"), done: document.getElementById("f-done").checked };
     m.innerHTML = "";
     putOrder(next);
     if (isNew) go(next.due);
   });
-  setTimeout(() => document.getElementById("f-work")?.focus(), 30);
+  if (!opts.heard) setTimeout(() => document.getElementById("f-work")?.focus(), 30);
+}
+
+/* ---------- голосовой ввод ---------- */
+// Браузерное распознавание речи (Chrome, Safari). Где его нет — поле для диктовки с клавиатуры, разбор тот же.
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+function stopRec() { const r = rec; rec = null; try { r && r.abort(); } catch (e) {} }
+
+function openVoice() {
+  const m = document.getElementById("modal"); resetModal(m);
+  m.innerHTML = `<div class="overlay" id="ov"><div class="sheet">
+    <h2>Голосовой ввод</h2>
+    <div class="sub" id="v-status">${SpeechRec ? "Слушаю…" : "Нажмите микрофон на клавиатуре и продиктуйте — или напишите."}</div>
+    <div class="field"><label for="v-text">Фраза</label><textarea id="v-text" rows="3" placeholder="коронка цирконий 2 штуки, Петров, к пятнице, цвет А2"></textarea></div>
+    <div class="sub">Новый заказ: «коронка цирконий, Петров, к пятнице». Перевести этап: «Петров коронка, этап фрезер».</div>
+    <div class="actions"><button class="primary" id="v-go">Разобрать</button>${SpeechRec ? `<button class="ghost" id="v-again">Слушать ещё раз</button>` : ""}<button class="ghost" id="v-cancel">Отмена</button></div>
+  </div></div>`;
+  const ta = document.getElementById("v-text");
+  const status = t => { const el = document.getElementById("v-status"); if (el) el.textContent = t; };
+  const close = () => { stopRec(); m.innerHTML = ""; render(); };
+  document.getElementById("ov").addEventListener("click", e => {
+    if (e.target.id === "ov" || e.target.id === "v-cancel") return close();
+    if (e.target.id === "v-again") return listen();
+    if (e.target.id === "v-go") { const text = ta.value.trim(); if (!text) return status("Скажите или напишите фразу."); stopRec(); handleVoice(text); }
+  });
+  function listen() {
+    stopRec();
+    const r = new SpeechRec(); rec = r;
+    r.lang = "ru-RU"; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
+    let finalText = "";
+    status("Слушаю…");
+    r.onresult = e => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) finalText += t; else interim += t; }
+      if (ta.isConnected) ta.value = (finalText + interim).trim();
+    };
+    r.onerror = e => {
+      if (rec !== r || !ta.isConnected) return;
+      status(e.error === "not-allowed" || e.error === "service-not-allowed" ? "Нет доступа к микрофону. Разрешите его в настройках или продиктуйте с клавиатуры."
+        : e.error === "no-speech" ? "Ничего не услышал. Нажмите «Слушать ещё раз»." : "Не получилось распознать. Можно продиктовать с клавиатуры.");
+    };
+    r.onend = () => {
+      if (rec !== r) return;          // остановили сами или запустили заново
+      rec = null;
+      if (!ta.isConnected) return;    // окно уже закрыто
+      if (finalText.trim()) handleVoice(ta.value.trim()); else if (/Слушаю/.test(document.getElementById("v-status")?.textContent || "")) status("Ничего не услышал. Нажмите «Слушать ещё раз».");
+    };
+    try { r.start(); } catch (e) { rec = null; status("Не получилось включить микрофон. Продиктуйте с клавиатуры."); }
+  }
+  if (SpeechRec) listen(); else setTimeout(() => ta.focus(), 30);
+}
+
+function handleVoice(text) {
+  const doctors = [...new Set(live().map(x => x.doctor).filter(Boolean))];
+  const known = [...new Set(live().map(x => x.work).filter(Boolean))];
+  const r = voiceIntent(text, today(), live(), doctors, known);
+  if (!(r.stage && r.matches.length)) return openForm(null, { prefill: r.order, heard: text });
+  // Похоже на перевод этапа существующего заказа — спрашиваем, какого
+  const m = document.getElementById("modal"); resetModal(m);
+  m.innerHTML = `<div class="overlay" id="ov"><div class="sheet">
+    <h2>Перевести на «${esc(stageName(r.stage))}»?</h2>
+    <div class="heard">Распознано: <b>«${esc(text)}»</b></div>
+    <div class="stagelist">${r.matches.map(o => `<button class="stageopt" data-move="${esc(o.id)}"><span><b>${esc(o.work || "Работа")}${o.units > 1 ? ` × ${o.units}` : ""}</b>
+      <span class="meta">${[o.patient && "пациент " + esc(o.patient), o.doctor && esc(o.doctor), "сдать " + human(o.due), o.stage && "сейчас: " + esc(stageName(o.stage))].filter(Boolean).join(" · ")}</span></span></button>`).join("")}</div>
+    <div class="actions"><button class="ghost" id="vm-new">Нет, это новый заказ</button><button class="ghost" id="vm-cancel">Отмена</button></div>
+  </div></div>`;
+  document.getElementById("ov").addEventListener("click", e => {
+    if (e.target.id === "ov" || e.target.id === "vm-cancel") { m.innerHTML = ""; return render(); }
+    if (e.target.id === "vm-new") return openForm(null, { prefill: r.order, heard: text });
+    const b = e.target.closest("[data-move]");
+    if (b) { m.innerHTML = ""; putOrder({ ...store.orders[b.dataset.move], stage: r.stage }); }
+  });
 }
 
 /* ---------- синхронизация через секретный GitHub Gist ---------- */
 const GIST_FILE = "dental-lab-orders.json";
 const GIST_DESC = "Данные приложения «Журнал зуботехнической лаборатории»";
-const TOMBSTONE_TTL = 60 * 24 * 3600 * 1000;
+const TOMBSTONE_TTL = 365 * 24 * 3600 * 1000;   // год: устройство, не выходившее в сеть дольше, может вернуть удалённое
 let sync = lsGet(LS_SYNC, { token: "", gistId: "" });
 let syncBusy = false, syncAgain = false, syncTimer = null;
 const cloudConnected = () => !!(sync.token && sync.gistId);
@@ -393,9 +743,13 @@ async function gh(path, opts = {}) {
 }
 
 async function findOrCreateGist() {
-  const list = await gh("/gists?per_page=100");
-  const found = list.find(g => g.files && g.files[GIST_FILE]);
-  if (found) return found.id;
+  // Листаем все гисты: нужный может быть не на первой странице
+  for (let page = 1; page <= 20; page++) {
+    const list = await gh(`/gists?per_page=100&page=${page}`);
+    const found = list.find(g => g.files && g.files[GIST_FILE]);
+    if (found) return found.id;
+    if (list.length < 100) break;
+  }
   const g = await gh("/gists", { method: "POST", body: JSON.stringify({ description: GIST_DESC, public: false, files: { [GIST_FILE]: { content: JSON.stringify(store) } } }) });
   return g.id;
 }
@@ -404,8 +758,17 @@ async function fetchRemote() {
   const g = await gh("/gists/" + sync.gistId);
   const f = g.files && g.files[GIST_FILE];
   if (!f) return { orders: {}, wishes: {} };
-  const text = f.truncated ? await (await fetch(f.raw_url, { cache: "no-store" })).text() : f.content;
-  try { const d = JSON.parse(text) || {}; return { orders: d.orders || {}, wishes: d.wishes || {} }; } catch (e) { return { orders: {}, wishes: {} }; }
+  let text = f.content;
+  if (f.truncated) {
+    const r = await fetch(f.raw_url, { cache: "no-store" });
+    if (!r.ok) { const e = new Error("raw " + r.status); e.status = r.status; throw e; }
+    text = await r.text();
+  }
+  if (!text || !text.trim()) return { orders: {}, wishes: {} };
+  // Битый ответ — ошибка, а не «пустое облако»: иначе следующий PATCH затёр бы данные в Gist
+  const d = JSON.parse(text);
+  if (!d || typeof d !== "object") throw new Error("bad gist data");
+  return { orders: d.orders || {}, wishes: d.wishes || {} };
 }
 
 // По каждой записи побеждает более поздняя правка; старые надгробия выбрасываем
@@ -440,12 +803,15 @@ async function syncNow() {
   setSyncStatus("☁ синхронизация…");
   try {
     const remote = await fetchRemote();
+    if (!cloudConnected()) throw Object.assign(new Error("off"), { off: true });   // отключили, пока ждали ответ
     const merged = merge(store, remote);   // store читаем после await — правки, сделанные во время загрузки, не теряются
+    const seq = editSeq;
     if (sig(merged) !== sig(store)) { store = merged; saveLocal(); if (!modalOpen()) render(); }
     if (sig(merged) !== sig(remote)) await gh("/gists/" + sync.gistId, { method: "PATCH", body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify(merged) } } }) });
-    lsSet(LS_DIRTY, false);
+    if (editSeq === seq) lsSet(LS_DIRTY, false); else syncAgain = true;   // правки во время отправки — ещё один проход
     setSyncStatus("☁ " + hhmm(), "ok");
   } catch (e) {
+    if (e.off) setSyncStatus("☁ не подключено"); else
     setSyncStatus(e.status === 401 ? "☁ токен не подходит" : lsGet(LS_DIRTY, false) ? "☁ нет связи, отправлю позже" : "☁ нет связи", "err");
   }
   syncBusy = false;
@@ -453,7 +819,7 @@ async function syncNow() {
 }
 
 function openSync() {
-  const m = document.getElementById("modal");
+  const m = document.getElementById("modal"); resetModal(m);
   const on = cloudConnected();
   m.innerHTML = `<div class="overlay" id="ov"><div class="sheet">
     <h2>Синхронизация</h2>
@@ -469,12 +835,20 @@ function openSync() {
       </ol>`}
     <div class="msg" id="s-msg" role="status"></div>
   </div></div>`;
-  const close = () => { m.innerHTML = ""; render(); };
-  const msg = (t, c) => { const el = document.getElementById("s-msg"); el.textContent = t; el.className = "msg " + (c || ""); };
+  // Ответ сети может прийти, когда окно уже закрыто (или открыто другое) — тогда ничего в нём не трогаем
+  const sheet = m.firstElementChild;
+  const close = () => { if (!sheet.isConnected) return; m.innerHTML = ""; render(); };
+  const msg = (t, c) => { const el = sheet.querySelector("#s-msg"); if (!sheet.isConnected || !el) return; el.textContent = t; el.className = "msg " + (c || ""); };
   document.getElementById("ov").addEventListener("click", e => { if (e.target.id === "ov") close(); });
   document.getElementById("s-close").onclick = close;
   if (on) {
-    document.getElementById("s-now").onclick = async () => { await syncNow(); msg(document.getElementById("syncbtn").textContent, document.getElementById("syncbtn").classList.contains("err") ? "err" : "ok"); };
+    document.getElementById("s-now").onclick = async () => {
+      msg("Синхронизирую…");
+      await syncNow();
+      while (syncBusy) await new Promise(r => setTimeout(r, 200));   // если уже шла синхронизация — дождаться её конца
+      const sb = document.getElementById("syncbtn");
+      msg(sb.textContent, sb.classList.contains("err") ? "err" : "ok");
+    };
     const off = document.getElementById("s-off");
     off.onclick = () => {
       if (!off.classList.contains("armed")) { off.classList.add("armed"); off.textContent = "Точно отключить? Заказы на устройстве останутся"; return; }
@@ -509,6 +883,9 @@ const ACCENTS = {
   violet:   { name: "Фиолетовый", light: "#6b4bb8", dark: "#ab94ff" },
   cherry:   { name: "Вишнёвый",   light: "#a3324f", dark: "#ff8aa5" },
   graphite: { name: "Графит",     light: "#3d4a4d", dark: "#b4c3c5" },
+  // Пастельные: на заливке тёмный текст, подписи — насыщенным оттенком того же цвета
+  sky:      { name: "Нежно-голубой", light: "#a8d2f2", dark: "#a8d2f2", ink: { light: "#2b6a9a", dark: "#a8d2f2" }, on: "#16324a" },
+  pink:     { name: "Нежно-розовый", light: "#faa2ca", dark: "#faa2ca", ink: { light: "#b8366f", dark: "#faa2ca" }, on: "#4a1631" },
 };
 const THEMES = [["system", "Как в системе"], ["light", "Светлая"], ["dark", "Тёмная"]];
 // Масштаб всего интерфейса (CSS zoom): текст, кнопки и календарь растут вместе
@@ -523,6 +900,9 @@ function applyPrefs() {
   if (prefs.theme === "system") r.removeAttribute("data-theme"); else r.setAttribute("data-theme", prefs.theme);
   const a = ACCENTS[prefs.accent] || ACCENTS.teal;
   r.style.setProperty("--accent", isDark() ? a.dark : a.light);
+  r.style.setProperty("--accent-ink", a.ink ? (isDark() ? a.ink.dark : a.ink.light) : "");
+  r.style.setProperty("--on-accent", a.on || "");
+  r.style.setProperty("--accent-soft", a.on ? "color-mix(in srgb, var(--accent) 35%, var(--surface))" : "");
   r.style.zoom = prefs.scale === 1 ? "" : prefs.scale;
   document.querySelector('meta[name="theme-color"]').content = getComputedStyle(r).getPropertyValue("--bg").trim();
 }
@@ -549,7 +929,7 @@ const MENU_PAGES = {
 // Тексты пунктов живут здесь, в Gist хранится только состояние (отмечено / своя просьба)
 const WISHES = [
   ["Ход работ", [
-    ["stages", "Этапы работы", "Видно, на каком этапе заказ: модели, каркас, примерка, керамика, готово, сдано."],
+    ["stages", "Этапы работы", "Сделано: этапы от сканирования модели до сдачи, переводятся с карточки и голосом."],
     ["fittings", "Даты примерок", "Кроме даты сдачи — промежуточные, например «примерка каркаса в среду»."],
     ["rework", "Возврат на доработку", "Пометка «вернули» с причиной и новой датой."],
     ["urgent", "Срочно", "Срочный заказ стоит в списке первым и заметно выделен."],
@@ -591,19 +971,25 @@ const wishesChecked = () => Object.values(store.wishes).filter(w => w.checked &&
 const hiddenWishes = () => Object.entries(store.wishes).filter(([, w]) => w.hidden && !w.custom);
 function putWish(id, patch) {
   store.wishes[id] = { ...store.wishes[id], ...patch, updatedAt: Date.now() };
-  saveLocal(); lsSet(LS_DIRTY, true); scheduleSync();
+  editSeq++; saveLocal(); lsSet(LS_DIRTY, true); scheduleSync();
 }
-const wishRow = (id, title, desc, w = store.wishes[id] || {}) => `<div class="wish" data-row="${esc(id)}">
+let editingWish = null;
+const wishRow = (id, title, desc, w = store.wishes[id] || {}) => editingWish === id
+  ? `<div class="wish editing" data-row="${esc(id)}"><div class="wedit">
+      ${w.custom ? `<textarea id="we-title" rows="2">${esc(title)}</textarea>`
+        : `<input id="we-title" value="${esc(title)}"><textarea id="we-desc" rows="2">${esc(desc)}</textarea>`}
+      <div class="wconfirm"><button class="wedit-btn" data-wish-save="${esc(id)}">Сохранить</button><button class="wcancel" data-wish-edit-cancel="1">Отмена</button></div></div></div>`
+  : `<div class="wish" data-row="${esc(id)}">
   <input type="checkbox" class="check" id="w-${esc(id)}" data-wish="${esc(id)}" ${w.checked ? "checked" : ""}>
   <label for="w-${esc(id)}"><b>${esc(title)}</b>${desc ? `<span>${esc(desc)}</span>` : ""}</label>
-  <div class="wconfirm"><button class="wremove" data-wish-remove="${esc(id)}">Удалить</button><button class="wcancel" data-wish-cancel="1">Отмена</button></div></div>`;
+  <div class="wconfirm"><button class="wedit-btn" data-wish-edit="${esc(id)}">Изменить</button><button class="wremove" data-wish-remove="${esc(id)}">Удалить</button><button class="wcancel" data-wish-cancel="1">Отмена</button></div></div>`;
 function renderWishes() {
   const own = customWishes();
   const hidden = hiddenWishes().length;
-  return `<div class="sub">Отметь, что нужно сделать. Своё можно дописать в самом низу. Долгое нажатие на пункт — удалить.</div>
+  return `<div class="sub">Отметь, что нужно сделать. Своё можно дописать в самом низу. Долгое нажатие на пункт — изменить или удалить.</div>
     ${WISHES.map(([group, items]) => {
       const shown = items.filter(([id]) => !(store.wishes[id] || {}).hidden);
-      return shown.length ? `<div class="dsec"><h2>${group}</h2>${shown.map(([id, t, d]) => wishRow(id, t, d)).join("")}</div>` : "";
+      return shown.length ? `<div class="dsec"><h2>${group}</h2>${shown.map(([id, t, d]) => { const w = store.wishes[id] || {}; return wishRow(id, w.title || t, w.desc ?? d); }).join("")}</div>` : "";
     }).join("")}
     <div class="dsec"><h2>Свои просьбы</h2>${own.map(([id, w]) => wishRow(id, w.text, "")).join("")}
       <div class="field"><label for="w-new">Новая просьба</label><textarea id="w-new" rows="2" placeholder="Что ещё добавить?"></textarea></div>
@@ -615,7 +1001,10 @@ let lpFired = false, menuPage = null;   // открытая страница м�
 function openMenu(page) {
   const m = document.getElementById("modal");
   const first = !m.querySelector(".drawer");
-  const keepScroll = !first && menuPage === page ? m.querySelector(".drawer").scrollTop : 0;
+  const same = !first && menuPage === page;
+  const keepScroll = same ? m.querySelector(".drawer").scrollTop : 0;
+  const draft = same ? m.querySelector("#w-new")?.value || "" : "";   // недописанная просьба переживает перерисовку
+  if (first) resetModal(m);
   menuPage = page;
   const title = page === "main" ? "Меню" : MENU.find(x => x[0] === page)[1];
   const body = page === "main"
@@ -626,11 +1015,14 @@ function openMenu(page) {
     <div class="dhead"><h2 class="dtitle">${title}</h2><button class="dclose" data-close="1" aria-label="Закрыть">×</button></div>
     ${body}</nav>`;
   m.querySelector(".drawer").scrollTop = keepScroll;
+  if (draft && m.querySelector("#w-new")) m.querySelector("#w-new").value = draft;
+  if (editingWish) setTimeout(() => m.querySelector("#we-title")?.focus(), 30);
   let lpTimer = null, x0 = 0, y0 = 0;
   m.onpointerdown = e => {
+    lpFired = false;   // любое новое касание сбрасывает флаг, иначе он съел бы следующий тап
     const row = e.target.closest(".wish[data-row]");
-    if (!row || e.target.closest(".wconfirm")) return;
-    lpFired = false; x0 = e.clientX; y0 = e.clientY;
+    if (!row || row.classList.contains("editing") || e.target.closest(".wconfirm, input, textarea")) return;
+    x0 = e.clientX; y0 = e.clientY;
     lpTimer = setTimeout(() => {
       lpFired = true;
       m.querySelectorAll(".wish.confirm").forEach(r => r.classList.remove("confirm"));
@@ -639,12 +1031,20 @@ function openMenu(page) {
     }, 550);
   };
   m.onpointermove = e => { if (lpTimer && (Math.abs(e.clientX - x0) > 10 || Math.abs(e.clientY - y0) > 10)) { clearTimeout(lpTimer); lpTimer = null; } };
-  m.onpointerup = m.onpointercancel = () => { clearTimeout(lpTimer); lpTimer = null; };
+  m.onpointerup = () => { clearTimeout(lpTimer); lpTimer = null; if (lpFired) setTimeout(() => { lpFired = false; }, 400); };
+  m.onpointercancel = () => { clearTimeout(lpTimer); lpTimer = null; lpFired = false; };   // палец ушёл в прокрутку — клика не будет
   m.onclick = e => {
     // Отпускание после долгого нажатия не должно переключать галочку
     if (lpFired) { lpFired = false; e.preventDefault(); return; }
-    const b = e.target.closest("[data-close], [data-page], [data-set-theme], [data-set-accent], [data-set-scale], [data-wish], [data-wish-add], [data-wish-remove], [data-wish-cancel], [data-wish-restore]");
+    const b = e.target.closest("[data-close], [data-page], [data-set-theme], [data-set-accent], [data-set-scale], [data-wish], [data-wish-add], [data-wish-remove], [data-wish-cancel], [data-wish-restore], [data-wish-edit], [data-wish-save], [data-wish-edit-cancel]");
     if (!b) return;
+    if (b.dataset.wishEdit) { editingWish = b.dataset.wishEdit; openMenu(page); return; }
+    if (b.dataset.wishEditCancel) { editingWish = null; openMenu(page); return; }
+    if (b.dataset.wishSave) {
+      const id = b.dataset.wishSave, title = m.querySelector("#we-title").value.trim(), desc = m.querySelector("#we-desc")?.value.trim();
+      if (title) putWish(id, (store.wishes[id] || {}).custom ? { text: title } : { title, desc });
+      editingWish = null; openMenu(page); return;
+    }
     if (b.dataset.wish) { putWish(b.dataset.wish, { checked: b.checked }); return; }
     if (b.dataset.wishCancel) { b.closest(".wish").classList.remove("confirm"); return; }
     if (b.dataset.wishRemove) {
@@ -657,10 +1057,11 @@ function openMenu(page) {
       const text = document.getElementById("w-new").value.trim();
       if (!text) return;
       putWish("c-" + newId(), { text, custom: true, checked: true, createdAt: Date.now() });
+      document.getElementById("w-new").value = "";
       openMenu(page); return;
     }
-    if (b.dataset.close) { m.onclick = null; m.innerHTML = ""; render(); }
-    else if (b.dataset.page === "sync") { m.onclick = null; m.innerHTML = ""; openSync(); }
+    if (b.dataset.close) { resetModal(m); m.innerHTML = ""; render(); }
+    else if (b.dataset.page === "sync") { m.innerHTML = ""; openSync(); }
     else if (b.dataset.page) openMenu(b.dataset.page);
     else {
       if (b.dataset.setTheme) prefs.theme = b.dataset.setTheme;
@@ -695,13 +1096,19 @@ syncNow();
 checkAppUpdate();
 
 let lastDay = today();
+// Наступила полночь — «сегодня» сдвигается (и если приложение лежит открытым, и после сворачивания)
+function checkDayChange() { if (today() !== lastDay) { if (S.sel === lastDay) S.sel = today(); lastDay = today(); if (!modalOpen()) render(); } }
 document.addEventListener("visibilitychange", () => {
   // Сворачивают — отправляем несохранённое сразу; не успеет — правка лежит локально и уйдёт при следующем открытии
   if (document.hidden) { if (lsGet(LS_DIRTY, false)) { clearTimeout(syncTimer); syncNow(); } return; }
-  if (today() !== lastDay) { if (S.sel === lastDay) S.sel = today(); lastDay = today(); if (!modalOpen()) render(); }
-  syncNow(); checkAppUpdate();
+  checkDayChange(); syncNow(); checkAppUpdate();
 });
-setInterval(() => { if (!document.hidden) { syncNow(); checkAppUpdate(); } }, 30000);
+setInterval(() => { if (!document.hidden) { checkDayChange(); syncNow(); checkAppUpdate(); } }, 30000);
+// Правки из другой вкладки этого же браузера
+window.addEventListener("storage", e => {
+  if (e.key !== LS_DATA || !e.newValue) return;
+  try { const other = JSON.parse(e.newValue); store = merge(store, { orders: other.orders || {}, wishes: other.wishes || {} }); if (!modalOpen()) render(); } catch (err) {}
+});
 // Появился интернет — сразу отправляем накопленное и забираем чужое
 window.addEventListener("online", () => syncNow());
 </script>
