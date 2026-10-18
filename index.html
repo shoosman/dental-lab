@@ -31,6 +31,7 @@ try { const p = JSON.parse(localStorage.getItem("lab-prefs") || "{}"); if (p.the
   --ok: #2e8b57; --ok-bg: #dff3e6;
   --warn: #b27a00; --warn-bg: #fdf0c8;
   --bad: #c0392b; --bad-bg: #fbe0dc;
+  --calm: #5b6b70; --calm-bg: #e6ebed;   /* «свободно» и «всё сдано»: нейтральный, не зависит от акцента */
   --font-display: "Unbounded", "Golos Text", system-ui, sans-serif;
   --font-body: "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color-scheme: light;
@@ -39,12 +40,12 @@ try { const p = JSON.parse(localStorage.getItem("lab-prefs") || "{}"); if (p.the
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #0f1a1c; --surface: #172427; --line: #29393c; --fg: #e4eeee; --muted: #93a8aa;
   --accent: #5cc4c0;
-  --ok: #5fd08d; --ok-bg: #15362a; --warn: #f0c04a; --warn-bg: #3a3014; --bad: #ff7b6b; --bad-bg: #401d1a;
+  --ok: #5fd08d; --ok-bg: #15362a; --warn: #f0c04a; --warn-bg: #3a3014; --bad: #ff7b6b; --bad-bg: #401d1a; --calm: #a9b7bb; --calm-bg: #243134;
   color-scheme: dark; } }
 :root[data-theme="dark"] {
   --bg: #0f1a1c; --surface: #172427; --line: #29393c; --fg: #e4eeee; --muted: #93a8aa;
   --accent: #5cc4c0;
-  --ok: #5fd08d; --ok-bg: #15362a; --warn: #f0c04a; --warn-bg: #3a3014; --bad: #ff7b6b; --bad-bg: #401d1a;
+  --ok: #5fd08d; --ok-bg: #15362a; --warn: #f0c04a; --warn-bg: #3a3014; --bad: #ff7b6b; --bad-bg: #401d1a; --calm: #a9b7bb; --calm-bg: #243134;
   color-scheme: dark; }
 
 * { box-sizing: border-box; }
@@ -102,7 +103,7 @@ h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: u
 .linkbtn { border: 0; background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 9px 12px; font-weight: 600; font-size: 14px; }
 
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.l0 { background: var(--accent-soft); color: var(--muted); }
+.l0 { background: var(--calm-bg); color: var(--calm); }
 .l1 { background: var(--ok-bg); color: var(--ok); }
 .l2 { background: var(--warn-bg); color: var(--warn); }
 .l3 { background: var(--bad-bg); color: var(--bad); }
