@@ -152,6 +152,13 @@ h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: u
 
 .fabs { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 6; display: flex; align-items: center; gap: 10px; }
 .fab { border: 0; background: var(--accent); color: var(--on-accent); font-weight: 700; padding: 14px 20px; border-radius: 999px; box-shadow: 0 6px 20px rgb(0 0 0 / .18); }
+.micfab { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; transition: transform .12s, background .12s; }
+.micfab.recording { background: var(--bad); color: #fff; border-color: transparent; transform: scale(1.18); }
+.vbubble { position: fixed; z-index: 7; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px)); max-width: 560px; margin: 0 auto; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 14px; padding: 10px 14px; box-shadow: 0 6px 20px rgb(0 0 0 / .16); pointer-events: none; font-size: 14px; display: grid; gap: 4px; }
+.vbubble .rec { color: var(--bad); font-weight: 700; }
+.vbubble .live { color: var(--muted); overflow-wrap: anywhere; }
 .micfab { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--accent-ink); display: grid; place-items: center; box-shadow: 0 4px 14px rgb(0 0 0 / .12); }
 
 .calhead { display: flex; align-items: center; gap: 8px; }
@@ -229,6 +236,7 @@ h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: u
   <button class="fab" id="fab">+ Заказ</button>
 </div>
 <div id="modal"></div>
+<div class="vbubble" id="vbubble" hidden role="status" aria-live="polite"></div>
 
 <script>
 const WORKS = ["Коронка металлокерамика","Коронка цирконий","Коронка E.max","Временная коронка","Винир","Вкладка","Мост","Бюгельный протез","Съёмный протез","Каппа","Ремонт протеза"];
@@ -555,7 +563,7 @@ function voiceIntent(raw, todayIso, orders, knownDoctors, knownWorks) {
   order.stage = stage;
   const explicit = /\sэтап|перевед|переведи|перевести|передвин|\sна\s+(скан|отлив|моделир|фрез|обработ|запек|спек|синтер|печь|глазур|покрас|вклей|вклеи|сдач)/.test(s);
   const matches = stage && (explicit || !order.due) ? voiceMatchOrders(raw, orders) : [];
-  return { stage, order, matches };
+  return { stage, order, matches, explicit };
 }
 
 /* ---------- экраны ---------- */
@@ -650,7 +658,6 @@ document.addEventListener("click", e => {
   else if (b.id === "fab") openForm(null);
   else if (b.id === "syncbtn") openSync();
   else if (b.id === "menubtn") openMenu("main");
-  else if (b.id === "micbtn") openVoice();
   else if (b.dataset.stage) openStagePicker(b.dataset.stage);
   else if (b.dataset.goto) go(b.dataset.goto);
   else if (b.dataset.shift) go(addDays(S.sel, +b.dataset.shift));
@@ -694,11 +701,12 @@ function openForm(o, opts = {}) {
   const isNew = !o;
   const prefill = Object.fromEntries(Object.entries(opts.prefill || {}).filter(([, v]) => v !== "" && v != null));
   if (isNew) o = { id: newId(), work: "", units: 1, patient: "", doctor: "", due: S.sel, note: "", done: false, stage: "", createdAt: Date.now(), ...prefill };
+  else if (opts.patch) o = { ...o, ...opts.patch };   // голосом сменили этап — показываем заказ уже с новым этапом
   const doctors = [...new Set(live().map(x => x.doctor).filter(Boolean))];
   const m = document.getElementById("modal"); resetModal(m);
   m.innerHTML = `<div class="overlay" id="ov"><form class="sheet" id="f" autocomplete="off">
     <h2>${isNew ? "Новый заказ" : "Заказ"}</h2>
-    ${opts.heard ? `<div class="heard">Распознано: <b>«${esc(opts.heard)}»</b><br>Проверьте поля и сохраните.</div>` : ""}
+    ${opts.heard ? `<div class="heard">Распознано: <b>«${esc(opts.heard)}»</b><br>${opts.patch?.stage ? `Новый этап: <b>${esc(stageName(opts.patch.stage))}</b>. ` : ""}Проверьте поля и сохраните.</div>` : ""}
     <div class="field"><label for="f-work">Что делаем</label><input id="f-work" list="dl-work" required value="${esc(o.work)}" placeholder="Коронка цирконий"></div>
     <div class="two">
       <div class="field"><label for="f-due">Дата сдачи</label><input id="f-due" type="date" required value="${esc(o.due)}"></div>
@@ -739,77 +747,141 @@ function openForm(o, opts = {}) {
 }
 
 /* ---------- голосовой ввод ---------- */
-// Браузерное распознавание речи (Chrome, Safari). Где его нет — поле для диктовки с клавиатуры, разбор тот же.
+// Запись «пока держишь кнопку»: нажал — говоришь, отпустил — разбор. Паузы запись не обрывают.
+// Где браузер не умеет распознавать речь — окно для диктовки с клавиатуры, разбор тот же.
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-let rec = null;
-function stopRec() { const r = rec; rec = null; try { r && r.abort(); } catch (e) {} }
+const VOICE_HELP = `<div class="vhelp" id="v-help" hidden><ul>
+  <li><b>Как говорить:</b> зажмите кнопку микрофона и держите, пока говорите. Отпустили — запись закончена.</li>
+  <li><b>Дата:</b> «сегодня», «завтра», «в пятницу», «через неделю», «к 30 числу». «25 октября» — этот год, «25 октября 2027» — названный.</li>
+  <li><b>Работа:</b> коронка, мост, винир, вкладка, бюгельный, съёмный, каппа, ремонт + материал: цирконий, E.max, металлокерамика, временная.</li>
+  <li><b>Количество:</b> «две коронки», «мост на 3 единицы», «2 штуки».</li>
+  <li><b>Пациент:</b> фамилия без пояснения («…Смирнова…») или «пациент Смирнова».</li>
+  <li><b>Клиника и врач:</b> только со словом: «клиника Улыбка», «врач Петров».</li>
+  <li><b>В комментарий:</b> «цвет А2», «система Осстем» или просто название системы (Straumann, Nobel, Osstem, MIS…), «делает Саша» (или «исполнитель», «мастер»).</li>
+  <li><b>Этап:</b> «Смирнова коронка, этап фрезер» — переводит уже существующий заказ.</li>
+  <li>Если всё понятно — сразу открывается форма. Если нет — покажу фразу и что именно не понял.</li>
+</ul></div>`;
+const infoBtn = `<button class="infobtn" id="v-info" aria-expanded="false" aria-controls="v-help" aria-label="Как фраза раскладывается по полям" title="Как фраза раскладывается по полям">i</button>`;
+function toggleHelp(btn) { const h = document.getElementById("v-help"); h.hidden = !h.hidden; btn.setAttribute("aria-expanded", !h.hidden); }
 
-function openVoice() {
-  const m = document.getElementById("modal"); resetModal(m);
-  m.innerHTML = `<div class="overlay" id="ov"><div class="sheet">
-    <div class="vhead"><h2>Голосовой ввод</h2><button class="infobtn" id="v-info" aria-expanded="false" aria-controls="v-help" aria-label="Как фраза раскладывается по полям" title="Как фраза раскладывается по полям">i</button></div>
-    <div class="vhelp" id="v-help" hidden><ul>
-      <li><b>Дата:</b> «сегодня», «завтра», «в пятницу», «через неделю», «к 30 числу». «25 октября» — этот год, «25 октября 2027» — названный.</li>
-      <li><b>Работа:</b> коронка, мост, винир, вкладка, бюгельный, съёмный, каппа, ремонт + материал: цирконий, E.max, металлокерамика, временная.</li>
-      <li><b>Количество:</b> «две коронки», «мост на 3 единицы», «2 штуки».</li>
-      <li><b>Пациент:</b> фамилия без пояснения («…Смирнова…») или «пациент Смирнова».</li>
-      <li><b>Клиника и врач:</b> только со словом: «клиника Улыбка», «врач Петров».</li>
-      <li><b>В комментарий:</b> «цвет А2», «система Осстем» или просто название системы (Straumann, Nobel, Osstem, MIS…), «делает Саша» (или «исполнитель», «мастер»).</li>
-      <li><b>Этап:</b> «Смирнова коронка, этап фрезер» — предложит перевести уже существующий заказ.</li>
-      <li>Перед сохранением всегда открывается форма — там можно поправить любое поле.</li>
-    </ul></div>
-    <div class="sub" id="v-status">${SpeechRec ? "Слушаю…" : "Нажмите микрофон на клавиатуре и продиктуйте — или напишите."}</div>
-    <div class="field"><label for="v-text">Фраза</label><textarea id="v-text" rows="3" placeholder="коронка цирконий 2 штуки, Петров, к пятнице, цвет А2"></textarea></div>
-    <div class="sub">Новый заказ: «коронка цирконий, Смирнова, клиника Улыбка, 25 октября, цвет А2, система Осстем, делает Саша». Перевести этап: «Смирнова коронка, этап фрезер».</div>
-    <div class="actions"><button class="primary" id="v-go">Разобрать</button>${SpeechRec ? `<button class="ghost" id="v-again">Слушать ещё раз</button>` : ""}<button class="ghost" id="v-cancel">Отмена</button></div>
-  </div></div>`;
-  const ta = document.getElementById("v-text");
-  const status = t => { const el = document.getElementById("v-status"); if (el) el.textContent = t; };
-  const close = () => { stopRec(); m.innerHTML = ""; render(); };
-  document.getElementById("ov").addEventListener("click", e => {
-    if (isBackdrop(e) || e.target.id === "v-cancel") return close();
-    if (e.target.id === "v-again") return listen();
-    if (e.target.id === "v-info") { const h = document.getElementById("v-help"); h.hidden = !h.hidden; e.target.setAttribute("aria-expanded", !h.hidden); return; }
-    if (e.target.id === "v-go") { const text = ta.value.trim(); if (!text) return status("Скажите или напишите фразу."); stopRec(); handleVoice(text); }
-  });
-  function listen() {
-    stopRec();
-    const r = new SpeechRec(); rec = r;
-    r.lang = "ru-RU"; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
-    let finalText = "";
-    status("Слушаю…");
+/* --- подсказка над кнопкой во время записи --- */
+let bubbleTimer = null;
+function showBubble(title, live, rec) {
+  const b = document.getElementById("vbubble");
+  clearTimeout(bubbleTimer);
+  b.innerHTML = `<div class="${rec ? "rec" : ""}">${esc(title)}</div>${live ? `<div class="live">${esc(live)}</div>` : ""}`;
+  b.hidden = false;
+}
+function hideBubble(after = 0) { clearTimeout(bubbleTimer); bubbleTimer = setTimeout(() => { document.getElementById("vbubble").hidden = true; }, after); }
+
+/* --- запись по удержанию --- */
+let ptt = null;   // текущая запись: { rec, finals, interim, holding, t0, error }
+function startPTT() {
+  const st = { rec: null, finals: "", interim: "", holding: true, t0: Date.now(), error: "" };
+  ptt = st;
+  document.getElementById("micbtn").classList.add("recording");
+  showBubble("● Запись… отпустите, чтобы закончить", "", true);
+  const run = () => {
+    const r = new SpeechRec(); st.rec = r;
+    r.lang = "ru-RU"; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
     r.onresult = e => {
       let interim = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) finalText += t; else interim += t; }
-      if (ta.isConnected) ta.value = (finalText + interim).trim();
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript.trim();
+        if (e.results[i].isFinal) st.finals = (st.finals + " " + t).trim(); else interim += " " + t;
+      }
+      st.interim = interim.trim();
+      if (ptt === st && st.holding) showBubble("● Запись… отпустите, чтобы закончить", (st.finals + " " + st.interim).trim(), true);
     };
-    r.onerror = e => {
-      if (rec !== r || !ta.isConnected) return;
-      status(e.error === "not-allowed" || e.error === "service-not-allowed" ? "Нет доступа к микрофону. Разрешите его в настройках или продиктуйте с клавиатуры."
-        : e.error === "no-speech" ? "Ничего не услышал. Нажмите «Слушать ещё раз»." : "Не получилось распознать. Можно продиктовать с клавиатуры.");
-    };
+    r.onerror = e => { if (e.error !== "no-speech" && e.error !== "aborted") st.error = e.error; };
     r.onend = () => {
-      if (rec !== r) return;          // остановили сами или запустили заново
-      rec = null;
-      if (!ta.isConnected) return;    // окно уже закрыто
-      if (finalText.trim() && prefs.voice === "review") { status("Проверьте фразу и нажмите «Разобрать»."); ta.focus(); }
-      else if (finalText.trim()) handleVoice(ta.value.trim()); else if (/Слушаю/.test(document.getElementById("v-status")?.textContent || "")) status("Ничего не услышал. Нажмите «Слушать ещё раз».");
+      if (ptt !== st) return;
+      // Браузер сам остановил распознавание (пауза), а кнопку ещё держат — продолжаем, уже сказанное сохранено
+      if (st.holding && !st.error) { st.finals = (st.finals + " " + st.interim).trim(); st.interim = ""; try { run(); return; } catch (err) { st.error = "start"; } }
+      finishPTT(st);
     };
-    try { r.start(); } catch (e) { rec = null; status("Не получилось включить микрофон. Продиктуйте с клавиатуры."); }
+    try { r.start(); } catch (err) { st.error = "start"; finishPTT(st); }
+  };
+  run();
+}
+function stopPTT() {
+  const st = ptt;
+  if (!st || !st.holding) return;
+  st.holding = false;
+  st.quick = Date.now() - st.t0 < 400;
+  document.getElementById("micbtn").classList.remove("recording");
+  showBubble("Распознаю…", (st.finals + " " + st.interim).trim(), false);
+  try { st.rec && st.rec.stop(); } catch (err) {}
+  setTimeout(() => finishPTT(st), 3000);   // если браузер так и не сообщил о конце — не ждём вечно
+}
+function finishPTT(st) {
+  if (ptt !== st) return;
+  ptt = null;
+  document.getElementById("micbtn").classList.remove("recording");
+  const text = (st.finals + " " + st.interim).trim();
+  if (st.error === "not-allowed" || st.error === "service-not-allowed") {
+    showBubble("Нет доступа к микрофону. Разрешите его в настройках браузера.", "", false); return hideBubble(4000);
   }
-  if (SpeechRec) listen(); else setTimeout(() => ta.focus(), 30);
+  if (!text) { showBubble(st.quick ? "Удерживайте кнопку, пока говорите" : "Ничего не услышал — попробуйте ещё раз", "", false); return hideBubble(2500); }
+  hideBubble();
+  routeVoice(text);
+}
+function initMic() {
+  const btn = document.getElementById("micbtn");
+  btn.addEventListener("contextmenu", e => e.preventDefault());
+  btn.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    if (!SpeechRec) return openVoice();
+    if (ptt) return;
+    try { btn.setPointerCapture(e.pointerId); } catch (err) {}   // отпускание засчитается кнопке, даже если палец съехал
+    startPTT();
+  });
+  ["pointerup", "pointercancel", "lostpointercapture"].forEach(ev => btn.addEventListener(ev, stopPTT));
 }
 
-function handleVoice(text) {
+/* --- окно для диктовки с клавиатуры (браузеры без распознавания речи) --- */
+function openVoice(text = "", problem = "") {
+  const m = document.getElementById("modal"); resetModal(m);
+  m.innerHTML = `<div class="overlay" id="ov"><div class="sheet">
+    <div class="vhead"><h2>${problem ? "Проверьте фразу" : "Голосовой ввод"}</h2>${infoBtn}</div>
+    ${VOICE_HELP}
+    <div class="${problem ? "notice remind" : "sub"}" id="v-status">${problem ? esc(problem) : "Нажмите микрофон на клавиатуре и продиктуйте — или напишите."}</div>
+    <div class="field"><label for="v-text">Фраза</label><textarea id="v-text" rows="3" placeholder="коронка цирконий 2 штуки, Смирнова, к пятнице, цвет А2">${esc(text)}</textarea></div>
+    <div class="actions"><button class="primary" id="v-go">${problem ? "Разобрать снова" : "Разобрать"}</button>
+      ${problem ? `<button class="ghost" id="v-send">Отправить дальше</button>` : ""}<button class="ghost" id="v-cancel">Отмена</button></div>
+  </div></div>`;
+  const ta = document.getElementById("v-text");
+  document.getElementById("ov").addEventListener("click", e => {
+    if (isBackdrop(e) || e.target.id === "v-cancel") { m.innerHTML = ""; return render(); }
+    if (e.target.id === "v-info") return toggleHelp(e.target);
+    const t = ta.value.trim();
+    if (e.target.id === "v-go") { if (!t) return ta.focus(); routeVoice(t, { reviewed: true }); }
+    if (e.target.id === "v-send") { if (!t) return ta.focus(); routeVoice(t, { force: true }); }
+  });
+  if (!problem) setTimeout(() => ta.focus(), 30);
+}
+
+// Куда отправить фразу: всё понятно — сразу в форму; непонятно — окно проверки; несколько заказов — выбор
+function routeVoice(text, opts = {}) {
   const doctors = [...new Set(live().map(x => x.doctor).filter(Boolean))];
   const known = [...new Set(live().map(x => x.work).filter(Boolean))];
   const r = voiceIntent(text, today(), live(), doctors, known);
-  if (!(r.stage && r.matches.length)) return openForm(null, { prefill: r.order, heard: text });
-  // Похоже на перевод этапа существующего заказа — спрашиваем, какого
+  const review = prefs.voice === "review" && !opts.reviewed && !opts.force;
+  // Перевод этапа существующего заказа
+  if (r.stage && r.matches.length === 1 && !review) return openForm(store.orders[r.matches[0].id], { heard: text, patch: { stage: r.stage } });
+  if (r.stage && r.matches.length > 1) return chooseOrderForStage(text, r);
+  if (r.stage && r.explicit && !opts.force) return openVoice(text, `Не нашёл заказ, который нужно перевести на «${stageName(r.stage)}». Поправьте фамилию или отправьте дальше как новый заказ.`);
+  // Новый заказ
+  const missing = [!r.order.work && "что за работа", !r.order.patient && "пациента", !r.order.due && "дату сдачи"].filter(Boolean);
+  if (opts.force || (!missing.length && !review)) return openForm(null, { prefill: r.order, heard: text });
+  openVoice(text, missing.length ? `Не понял: ${missing.join(", ")}. Поправьте фразу или отправьте дальше — недостающее заполните в форме.` : "Проверьте фразу и нажмите «Разобрать снова».");
+}
+
+function chooseOrderForStage(text, r) {
   const m = document.getElementById("modal"); resetModal(m);
   m.innerHTML = `<div class="overlay" id="ov"><div class="sheet">
     <h2>Перевести на «${esc(stageName(r.stage))}»?</h2>
-    <div class="heard">Распознано: <b>«${esc(text)}»</b></div>
+    <div class="heard">Распознано: <b>«${esc(text)}»</b><br>Подходит несколько заказов — выберите нужный.</div>
     <div class="stagelist">${r.matches.map(o => `<button class="stageopt" data-move="${esc(o.id)}"><span><b>${esc(o.work || "Работа")}${o.units > 1 ? ` × ${o.units}` : ""}</b>
       <span class="meta">${[o.patient && "пациент " + esc(o.patient), o.doctor && esc(o.doctor), "сдать " + human(o.due), o.stage && "сейчас: " + esc(stageName(o.stage))].filter(Boolean).join(" · ")}</span></span></button>`).join("")}</div>
     <div class="actions"><button class="ghost" id="vm-new">Нет, это новый заказ</button><button class="ghost" id="vm-cancel">Отмена</button></div>
@@ -818,7 +890,7 @@ function handleVoice(text) {
     if (isBackdrop(e) || e.target.id === "vm-cancel") { m.innerHTML = ""; return render(); }
     if (e.target.id === "vm-new") return openForm(null, { prefill: r.order, heard: text });
     const b = e.target.closest("[data-move]");
-    if (b) { m.innerHTML = ""; putOrder({ ...store.orders[b.dataset.move], stage: r.stage }); }
+    if (b) openForm(store.orders[b.dataset.move], { heard: text, patch: { stage: r.stage } });
   });
 }
 
@@ -987,7 +1059,7 @@ const THEMES = [["system", "Как в системе"], ["light", "Светла�
 const SCALES = [[0.8, "Совсем мелко"], [0.9, "Мельче"], [1, "Обычный"], [1.1, "Крупнее"]];
 let prefs = { theme: "system", accent: "teal", scale: 1, voice: "auto", ...lsGet(LS_PREFS, {}) };
 // Голос: "auto" — сразу заполнять форму, "review" — сначала показать фразу для правки
-const VOICE_MODES = [["auto", "Сразу заполнять форму"], ["review", "Сначала показать фразу"]];
+const VOICE_MODES = [["auto", "Сразу в форму, если всё понятно"], ["review", "Всегда сначала показывать фразу"]];
 if (!SCALES.some(([k]) => k === prefs.scale)) prefs.scale = SCALES.reduce((best, [k]) => Math.abs(k - prefs.scale) < Math.abs(best - prefs.scale) ? k : best, 1);
 const darkMq = matchMedia("(prefers-color-scheme: dark)");
 const isDark = () => prefs.theme === "dark" || (prefs.theme === "system" && darkMq.matches);
@@ -1017,7 +1089,8 @@ const MENU_PAGES = {
   wishes: () => renderWishes(),
   voice: () => `
     <div class="dsec"><h2>После распознавания</h2><div class="seg">${VOICE_MODES.map(([k, n]) => `<button data-set-voice="${k}" aria-pressed="${prefs.voice === k}">${n}</button>`).join("")}</div>
-      <div class="sub">«Сначала показать фразу» — можно поправить, если фамилия распозналась неверно («Чепуши Лкин»), и потом нажать «Разобрать».</div></div>`,
+      <div class="sub">Если фраза понятна не до конца, она и так покажется для проверки. «Всегда сначала показывать» — проверять каждый раз.</div></div>
+    <div class="dsec"><div class="vhead"><h2>Как это работает</h2>${infoBtn}</div>${VOICE_HELP}</div>`,
   appearance: () => `
     <div class="dsec"><h2>Тема</h2><div class="seg">${THEMES.map(([k, n]) => `<button data-set-theme="${k}" aria-pressed="${prefs.theme === k}">${n}</button>`).join("")}</div></div>
     <div class="dsec"><h2>Масштаб</h2><div class="seg">${SCALES.map(([k, n]) => `<button data-set-scale="${k}" aria-pressed="${prefs.scale === k}" aria-label="${n}" title="${n}"><span style="font-size:${Math.round(15 * k)}px">Аа</span></button>`).join("")}</div></div>
@@ -1137,6 +1210,7 @@ function openMenu(page) {
   m.onclick = e => {
     // Отпускание после долгого нажатия не должно переключать галочку
     if (lpFired) { lpFired = false; e.preventDefault(); return; }
+    if (e.target.id === "v-info") { toggleHelp(e.target); return; }
     const b = e.target.closest("[data-close], [data-page], [data-set-theme], [data-set-accent], [data-set-scale], [data-set-voice], [data-wish], [data-wish-add], [data-wish-remove], [data-wish-cancel], [data-wish-restore], [data-wish-edit], [data-wish-save], [data-wish-edit-cancel]");
     if (!b) return;
     if (b.dataset.wishEdit) { editingWish = b.dataset.wishEdit; openMenu(page); return; }
@@ -1191,6 +1265,7 @@ if ("serviceWorker" in navigator && location.protocol === "https:") navigator.se
 
 /* ---------- запуск ---------- */
 applyPrefs();
+initMic();
 S.sel = today(); { const p = new Date(); S.calY = p.getFullYear(); S.calM = p.getMonth(); }
 setSyncStatus(cloudConnected() ? "☁ …" : "☁ не подключено");
 render();
